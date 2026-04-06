@@ -1,417 +1,601 @@
 import { useState, useEffect } from "react";
 
-const BRAND = {
-  darkGreen:  "#1A3C2E",
-  midGreen:   "#2D6A4F",
-  accent:     "#40916C",
-  light:      "#74C69D",
-  pale:       "#D8F3DC",
-  stripe:     "#EBF7EE",
-  text:       "#1C2B22",
-  textMid:    "#3A5242",
-  textGrey:   "#607466",
-  white:      "#FFFFFF",
+// ── Brand ────────────────────────────────────────────────────────────────────
+const B = {
+  dk:"#1A3C2E", md:"#2D6A4F", ac:"#40916C", lt:"#74C69D",
+  pl:"#D8F3DC", st:"#EBF7EE", tx:"#1C2B22", tm:"#3A5242",
+  tg:"#607466", wh:"#FFFFFF",
+};
+const AREA_COLOR = { Strategy:"#1A3C2E", Operations:"#2D6A4F", Training:"#52B788", Comms:"#40916C", Media:"#74C69D" };
+const STATUS_STYLE = {
+  "Complete":    { bg:"#C6EFCE", fg:"#1A5C2A", bd:"#74C69D" },
+  "In Progress": { bg:"#FFF3CD", fg:"#7A5000", bd:"#F0C040" },
+  "Not Started": { bg:"#FFE0E0", fg:"#8B1A1A", bd:"#E08080" },
+};
+const PRI_STYLE = {
+  Critical:{ bg:"#1A3C2E", fg:"#fff" },
+  High:    { bg:"#40916C", fg:"#fff" },
+  Medium:  { bg:"#D8F3DC", fg:"#2D6A4F" },
+  Low:     { bg:"#f0f0f0", fg:"#555" },
+};
+const RACI_CYCLE = ["","R","A","C","I"];
+const RACI_STYLE = {
+  R:{ bg:"#1A3C2E", fg:"#fff" }, A:{ bg:"#40916C", fg:"#fff" },
+  C:{ bg:"#D8F3DC", fg:"#1A3C2E" }, I:{ bg:"#e4e4e4", fg:"#555" },
+  "":{ bg:"transparent", fg:"#ccc" },
 };
 
-const initialTasks = [
-  { id:1,  desc:"Confirm event date & format",        owner:"Committee",         start:"06 Apr", due:"06 Apr", status:"Complete",    priority:"Critical", deps:"–",    notes:"Event fixed for 28 April",         pct:100, startD:6,  endD:6  },
-  { id:2,  desc:"Finalise debate motion shortlist",   owner:"Training & Dev",    start:"06 Apr", due:"06 Apr", status:"Complete",    priority:"High",     deps:"1",    notes:"Lean vs BIM selected",             pct:100, startD:6,  endD:6  },
-  { id:3,  desc:"Submit Reds Hall booking",           owner:"Event Lead",        start:"06 Apr", due:"07 Apr", status:"Not Started", priority:"High",     deps:"1",    notes:"NSU approval required",            pct:0,   startD:6,  endD:7  },
-  { id:4,  desc:"Confirm Debate Chair shortlist",     owner:"President / COO",   start:"07 Apr", due:"08 Apr", status:"Complete",    priority:"High",     deps:"3",    notes:"Kelechi Ayanso, Barry Gledson",    pct:100, startD:7,  endD:8  },
-  { id:5,  desc:"Open call for speakers",             owner:"Comms Lead",        start:"08 Apr", due:"09 Apr", status:"Not Started", priority:"High",     deps:"2,4",  notes:"Prop & Opp",                      pct:0,   startD:8,  endD:9  },
-  { id:6,  desc:"Confirm speakers + reserves",        owner:"Event Lead",        start:"09 Apr", due:"11 Apr", status:"Not Started", priority:"High",     deps:"5",    notes:"Min 2 per side",                  pct:0,   startD:9,  endD:11 },
-  { id:7,  desc:"Issue speaker briefing pack",        owner:"Training & Dev",    start:"11 Apr", due:"11 Apr", status:"Not Started", priority:"Medium",   deps:"6",    notes:"Oxford rules",                    pct:0,   startD:11, endD:11 },
-  { id:8,  desc:"Launch promotion",                   owner:"Media / PRO",       start:"12 Apr", due:"12 Apr", status:"Not Started", priority:"High",     deps:"2,3",  notes:"LinkedIn + reps",                 pct:0,   startD:12, endD:23 },
-  { id:9,  desc:"Open registration form",             owner:"Comms Lead",        start:"12 Apr", due:"14 Apr", status:"Not Started", priority:"Medium",   deps:"8",    notes:"MS Forms",                        pct:0,   startD:12, endD:27 },
-  { id:10, desc:"Engage academic reps & societies",   owner:"PRO",               start:"14 Apr", due:"17 Apr", status:"Not Started", priority:"Medium",   deps:"8",    notes:"Dept amplification",              pct:0,   startD:14, endD:17 },
-  { id:11, desc:"Prepare debate run-of-show",         owner:"Event Lead",        start:"14 Apr", due:"15 Apr", status:"Not Started", priority:"Medium",   deps:"4,6",  notes:"Chair script",                   pct:0,   startD:14, endD:15 },
-  { id:12, desc:"Prepare voting forms (QR)",          owner:"CTO",               start:"16 Apr", due:"18 Apr", status:"Not Started", priority:"Medium",   deps:"2",    notes:"Pre & post vote",                 pct:0,   startD:16, endD:18 },
-  { id:13, desc:"Confirm AV & room setup",            owner:"Logistics Lead",    start:"18 Apr", due:"21 Apr", status:"Not Started", priority:"High",     deps:"3",    notes:"Mics, projector",                 pct:0,   startD:18, endD:21 },
-  { id:14, desc:"Promotion reminder push",            owner:"Media Manager",     start:"21 Apr", due:"22 Apr", status:"Not Started", priority:"Medium",   deps:"8,9",  notes:"Attendance boost",                pct:0,   startD:21, endD:22 },
-  { id:15, desc:"Speaker reconfirmation",             owner:"Training & Dev",    start:"23 Apr", due:"24 Apr", status:"Not Started", priority:"High",     deps:"6",    notes:"No-shows risk",                   pct:0,   startD:23, endD:24 },
-  { id:16, desc:"Final logistics walkthrough",        owner:"Event + Logistics", start:"27 Apr", due:"27 Apr", status:"Not Started", priority:"High",     deps:"13",   notes:"Go / No-go check",                pct:0,   startD:27, endD:27 },
-  { id:17, desc:"★ DELIVER EVENT",                    owner:"All",               start:"28 Apr", due:"28 Apr", status:"Not Started", priority:"Critical", deps:"16",   notes:"Event day — Reds Hall",           pct:0,   startD:28, endD:28 },
-  { id:18, desc:"Publish LinkedIn article",           owner:"Media Manager",     start:"29 Apr", due:"01 May", status:"Not Started", priority:"Medium",   deps:"17",   notes:"Post-event output",               pct:0,   startD:29, endD:31 },
-  { id:19, desc:"Capture feedback & lessons learned", owner:"Secretary",         start:"29 Apr", due:"03 May", status:"Not Started", priority:"Medium",   deps:"17",   notes:"Repeatability",                   pct:0,   startD:29, endD:33 },
+// ── Team (from uploaded documents) ───────────────────────────────────────────
+const TEAM = [
+  { id:"callum",     name:"Callum O'Connor",    role:"President / CEO",              area:"Strategy",   resp:"Strategic oversight, institutional alignment, internal coordination" },
+  { id:"sandhya",    name:"Sandhya Chimata",     role:"Vice President / COO",         area:"Operations", resp:"Operational coordination and delivery assurance" },
+  { id:"kufre",      name:"Kufre Antia",         role:"Training & Dev Manager / CTO", area:"Training",   resp:"Debate structure, speaker briefing, academic rigour, LinkedIn content capture, Documentation" },
+  { id:"tolulope",   name:"Tolulope Idowu",      role:"Project Manager",              area:"Comms",      resp:"Promotion, NSU approvals, Budget oversight, partnerships with depts & societies" },
+  { id:"uchechukwu", name:"Uchechukwu Maduwuba", role:"Event / Media Manager",        area:"Media",      resp:"Audio Visuals, Media, Venue and NSU Logistics" },
 ];
 
-const committee = [
-  { role:"President / CEO",              name:"Callum O'Connor",     area:"Strategy",    resp:"Strategic oversight, institutional alignment" },
-  { role:"Vice President / COO",         name:"Sandhya Chimata",     area:"Operations",  resp:"Operational coordination and delivery assurance" },
-  { role:"Secretary / Admin Manager",    name:"Collins Tamunotoye",  area:"Admin",       resp:"Documentation, approvals, internal coordination" },
-  { role:"Training & Dev Manager / CTO", name:"Kufre Antia",         area:"Training",    resp:"Debate structure, speaker briefing, academic rigour" },
-  { role:"PRO / Industry Liaison",       name:"Mohamed Aborimia",    area:"Comms",       resp:"Promotion, partnerships with departments & societies" },
-  { role:"Treasurer / Fin. Director",    name:"Tolulope Idowu",      area:"Finance",     resp:"Budget oversight, cost control" },
-  { role:"Event / Media Manager",        name:"Uchechukwu Maduwuba", area:"Media",       resp:"Media, photography, LinkedIn content capture" },
+// ── Tasks (from uploaded documents — correct statuses) ────────────────────────
+const DEFAULT_TASKS = [
+  { id:1,  desc:"Confirm event date & format",        owner:"callum",     start:"2026-04-06", end:"2026-04-06", status:"Complete",    pri:"Critical", deps:"",    notes:"Event fixed for 28 April",                                                               pct:100 },
+  { id:2,  desc:"Finalise debate motion",             owner:"kufre",      start:"2026-04-06", end:"2026-04-06", status:"Not Started", pri:"High",     deps:"1",   notes:"Single motion only",                                                                     pct:0   },
+  { id:3,  desc:"Submit Reds Hall booking",           owner:"tolulope",   start:"2026-04-06", end:"2026-04-07", status:"Not Started", pri:"High",     deps:"1",   notes:"NSU approval required",                                                                  pct:0   },
+  { id:4,  desc:"Confirm Debate Chair",               owner:"callum",     start:"2026-04-07", end:"2026-04-08", status:"Not Started", pri:"High",     deps:"3",   notes:"Kelechi Ayanso, Barry Gledson (Lean vs BIM), Michelle Littlemore, Pablo Martinez",       pct:0   },
+  { id:5,  desc:"Open call for speakers",             owner:"tolulope",   start:"2026-04-08", end:"2026-04-09", status:"Not Started", pri:"High",     deps:"2,4", notes:"Prop & Opp",                                                                             pct:0   },
+  { id:6,  desc:"Confirm speakers + reserves",        owner:"kufre",      start:"2026-04-09", end:"2026-04-11", status:"Not Started", pri:"High",     deps:"5",   notes:"Laye, Kufre, Lucas, Ikechukwu, Vemula, Maria",                                          pct:0   },
+  { id:7,  desc:"Issue speaker briefing pack",        owner:"kufre",      start:"2026-04-11", end:"2026-04-11", status:"Not Started", pri:"Medium",   deps:"6",   notes:"Oxford rules",                                                                           pct:0   },
+  { id:8,  desc:"Launch promotion",                   owner:"tolulope",   start:"2026-04-12", end:"2026-04-23", status:"Not Started", pri:"High",     deps:"2,3", notes:"LinkedIn + reps",                                                                        pct:0   },
+  { id:9,  desc:"Open registration form",             owner:"tolulope",   start:"2026-04-12", end:"2026-04-27", status:"Not Started", pri:"Medium",   deps:"8",   notes:"MS Forms",                                                                               pct:0   },
+  { id:10, desc:"Engage academic reps & societies",   owner:"tolulope",   start:"2026-04-14", end:"2026-04-17", status:"Not Started", pri:"Medium",   deps:"8",   notes:"Dept amplification",                                                                     pct:0   },
+  { id:11, desc:"Prepare debate run-of-show",         owner:"callum",     start:"2026-04-14", end:"2026-04-15", status:"Not Started", pri:"Medium",   deps:"4,6", notes:"Chair script",                                                                           pct:0   },
+  { id:12, desc:"Prepare voting forms (QR)",          owner:"kufre",      start:"2026-04-16", end:"2026-04-18", status:"Not Started", pri:"Medium",   deps:"2",   notes:"Pre & post vote",                                                                        pct:0   },
+  { id:13, desc:"Confirm AV & room setup",            owner:"uchechukwu", start:"2026-04-18", end:"2026-04-21", status:"Not Started", pri:"High",     deps:"3",   notes:"Mics, projector",                                                                        pct:0   },
+  { id:14, desc:"Promotion reminder push",            owner:"tolulope",   start:"2026-04-21", end:"2026-04-22", status:"Not Started", pri:"Medium",   deps:"8,9", notes:"Attendance boost",                                                                       pct:0   },
+  { id:15, desc:"Speaker reconfirmation",             owner:"kufre",      start:"2026-04-23", end:"2026-04-24", status:"Not Started", pri:"High",     deps:"6",   notes:"No-shows risk",                                                                          pct:0   },
+  { id:16, desc:"Final logistics walkthrough",        owner:"uchechukwu", start:"2026-04-27", end:"2026-04-27", status:"Not Started", pri:"High",     deps:"13",  notes:"Go / No-go check",                                                                       pct:0   },
+  { id:17, desc:"DELIVER EVENT",                      owner:"callum",     start:"2026-04-28", end:"2026-04-28", status:"Not Started", pri:"Critical", deps:"16",  notes:"Event day — Reds Hall",                                                                  pct:0   },
+  { id:18, desc:"Publish LinkedIn article",           owner:"kufre",      start:"2026-04-29", end:"2026-05-01", status:"Not Started", pri:"Medium",   deps:"17",  notes:"Post-event output",                                                                      pct:0   },
+  { id:19, desc:"Capture feedback & lessons learned", owner:"tolulope",   start:"2026-04-29", end:"2026-05-03", status:"Not Started", pri:"Medium",   deps:"17",  notes:"Repeatability",                                                                          pct:0   },
 ];
 
-const DAYS = Array.from({length:33}, (_,i) => i+6);
-const DAY_LABELS = {6:"6",7:"7",8:"8",9:"9",10:"10",11:"11",12:"12",13:"13",14:"14",15:"15",16:"16",17:"17",18:"18",19:"19",20:"20",21:"21",22:"22",23:"23",24:"24",25:"25",26:"26",27:"27",28:"28★",29:"29",30:"30",31:"1M",32:"2M",33:"3M"};
-const weekends = [7,8,13,14,19,20,25,26];
-
-const statusColors = {
-  "Complete":    { bg:"#C6EFCE", fg:"#1A5C2A", border:"#74C69D" },
-  "In Progress": { bg:"#FFF3CD", fg:"#7A5000", border:"#F0C040" },
-  "Not Started": { bg:"#FFE0E0", fg:"#8B1A1A", border:"#E08080" },
+const DEFAULT_RACI = {
+  1: {callum:"A",sandhya:"C",kufre:"I",tolulope:"R",uchechukwu:"I"},
+  2: {callum:"A",sandhya:"C",kufre:"R",tolulope:"I",uchechukwu:"I"},
+  3: {callum:"C",sandhya:"I",kufre:"I",tolulope:"R",uchechukwu:"A"},
+  4: {callum:"R",sandhya:"A",kufre:"C",tolulope:"I",uchechukwu:"I"},
+  5: {callum:"A",sandhya:"I",kufre:"C",tolulope:"R",uchechukwu:"I"},
+  6: {callum:"A",sandhya:"I",kufre:"R",tolulope:"C",uchechukwu:"I"},
+  7: {callum:"A",sandhya:"I",kufre:"R",tolulope:"I",uchechukwu:"I"},
+  8: {callum:"A",sandhya:"I",kufre:"C",tolulope:"R",uchechukwu:"C"},
+  9: {callum:"A",sandhya:"I",kufre:"I",tolulope:"R",uchechukwu:"I"},
+  10:{callum:"A",sandhya:"I",kufre:"C",tolulope:"R",uchechukwu:"I"},
+  11:{callum:"R",sandhya:"I",kufre:"A",tolulope:"I",uchechukwu:"I"},
+  12:{callum:"A",sandhya:"I",kufre:"R",tolulope:"I",uchechukwu:"I"},
+  13:{callum:"A",sandhya:"I",kufre:"I",tolulope:"C",uchechukwu:"R"},
+  14:{callum:"A",sandhya:"I",kufre:"C",tolulope:"R",uchechukwu:"I"},
+  15:{callum:"A",sandhya:"I",kufre:"R",tolulope:"C",uchechukwu:"I"},
+  16:{callum:"A",sandhya:"C",kufre:"I",tolulope:"C",uchechukwu:"R"},
+  17:{callum:"A",sandhya:"R",kufre:"R",tolulope:"R",uchechukwu:"R"},
+  18:{callum:"A",sandhya:"I",kufre:"R",tolulope:"C",uchechukwu:"I"},
+  19:{callum:"A",sandhya:"I",kufre:"C",tolulope:"R",uchechukwu:"I"},
 };
-const priorityColors = {
-  "Critical": { bg:BRAND.darkGreen,  fg:"#FFFFFF" },
-  "High":     { bg:BRAND.accent,     fg:"#FFFFFF" },
-  "Medium":   { bg:BRAND.pale,       fg:BRAND.midGreen },
-};
 
-function initials(name) {
-  return name.split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase();
+// ── Helpers ──────────────────────────────────────────────────────────────────
+const GANTT_START = new Date("2026-04-06T12:00:00");
+const GANTT_DAYS  = 33;
+
+function ganttOffset(d) { return Math.max(0, Math.round((new Date(d+"T12:00:00") - GANTT_START) / 86400000)); }
+function ganttWidth(s,e) { return Math.max(1, ganttOffset(e) - ganttOffset(s) + 1); }
+function fmtDate(d) { if(!d)return"—"; return new Date(d+"T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short"}); }
+function memberObj(id) { return TEAM.find(t=>t.id===id) || {name:id,area:"",role:""}; }
+function initials(n) { return n.split(" ").map(x=>x[0]).join("").slice(0,2).toUpperCase(); }
+function calcPct(tasks) { return tasks.length ? Math.round(tasks.reduce((s,t)=>s+t.pct,0)/tasks.length) : 0; }
+function loadState(key, def) {
+  try { const s=localStorage.getItem(key); return s?JSON.parse(s):JSON.parse(JSON.stringify(def)); }
+  catch { return JSON.parse(JSON.stringify(def)); }
 }
 
-function areaColor(area) {
-  const map = { Strategy:BRAND.darkGreen, Operations:BRAND.midGreen, Admin:BRAND.accent, Training:"#52B788", Comms:"#40916C", Finance:"#1A3C2E", Media:"#2D6A4F" };
-  return map[area] || BRAND.accent;
+// ── Shared components ─────────────────────────────────────────────────────────
+function Avatar({name,area,size=32}){
+  return <div style={{width:size,height:size,borderRadius:"50%",background:AREA_COLOR[area]||B.ac,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+    <span style={{fontSize:size*.38,fontWeight:700,color:"#fff"}}>{initials(name)}</span>
+  </div>;
+}
+function Badge({label}){
+  const s=STATUS_STYLE[label]||{bg:B.pl,fg:B.md,bd:"transparent"};
+  return <span style={{display:"inline-block",padding:"2px 9px",borderRadius:20,fontSize:10,fontWeight:600,background:s.bg,color:s.fg,border:`1px solid ${s.bd}`,whiteSpace:"nowrap"}}>{label}</span>;
+}
+function PriBadge({label}){
+  const s=PRI_STYLE[label]||PRI_STYLE.Low;
+  return <span style={{display:"inline-block",padding:"2px 9px",borderRadius:20,fontSize:10,fontWeight:700,background:s.bg,color:s.fg,whiteSpace:"nowrap"}}>{label}</span>;
+}
+function Pbar({pct,h=6,done=false}){
+  return <div style={{height:h,borderRadius:99,background:B.pl,overflow:"hidden",flex:1}}>
+    <div style={{height:"100%",width:`${pct}%`,background:done?"#1A5C2A":B.ac,borderRadius:99,transition:"width .4s"}}/>
+  </div>;
+}
+function Card({children,style:s}){ return <div style={{background:B.wh,borderRadius:12,border:`1px solid ${B.pl}`,padding:"18px 22px",...s}}>{children}</div>; }
+function SecHead({title,sub}){ return <div style={{marginBottom:16}}><h2 style={{fontSize:20,fontWeight:700,color:B.dk,margin:0}}>{title}</h2>{sub&&<p style={{color:B.tg,fontSize:12,margin:"3px 0 0"}}>{sub}</p>}</div>; }
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+function Toast({msg}){
+  if(!msg)return null;
+  return <div style={{position:"fixed",bottom:24,right:24,background:B.dk,color:"#fff",padding:"10px 18px",borderRadius:8,fontSize:12,fontWeight:600,zIndex:999,boxShadow:"0 4px 12px rgba(0,0,0,.2)"}}>{msg}</div>;
 }
 
-export default function App() {
-  const [tab, setTab] = useState("dashboard");
-  const [tasks, setTasks] = useState(initialTasks);
-  const [filterStatus, setFilterStatus] = useState("All");
-  const [editId, setEditId] = useState(null);
-  const [editStatus, setEditStatus] = useState("");
-  const [editPct, setEditPct] = useState(0);
+// ── Modal wrapper ─────────────────────────────────────────────────────────────
+function Modal({onClose,children}){
+  useEffect(()=>{
+    const h=e=>{if(e.key==="Escape")onClose();};
+    window.addEventListener("keydown",h);
+    return()=>window.removeEventListener("keydown",h);
+  },[onClose]);
+  return <div onClick={e=>e.target===e.currentTarget&&onClose()}
+    style={{position:"fixed",inset:0,background:"rgba(26,60,46,.5)",zIndex:500,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+    <div style={{background:B.wh,borderRadius:14,padding:26,width:500,maxWidth:"100%",maxHeight:"90vh",overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,.25)"}}>{children}</div>
+  </div>;
+}
 
-  const today = 6;
-  const done    = tasks.filter(t => t.status === "Complete").length;
-  const inProg  = tasks.filter(t => t.status === "In Progress").length;
-  const notStr  = tasks.filter(t => t.status === "Not Started").length;
-  const overallPct = Math.round(tasks.reduce((s,t) => s+t.pct, 0) / tasks.length);
-
-  function updateTask(id, newStatus, newPct) {
-    setTasks(ts => ts.map(t => t.id === id ? {...t, status: newStatus, pct: newPct} : t));
-    setEditId(null);
+// ── Task edit / create modal ──────────────────────────────────────────────────
+function TaskModal({task,onSave,onDelete,onClose}){
+  const isNew=!task.id;
+  const [f,setF]=useState({
+    desc:task.desc||"", start:task.start||"2026-04-06", end:task.end||"2026-04-07",
+    status:task.status||"Not Started", pri:task.pri||"High",
+    owner:task.owner||TEAM[0].id, pct:task.pct??0, deps:task.deps||"", notes:task.notes||"",
+  });
+  const upd=(k,v)=>setF(x=>({...x,[k]:v}));
+  function submit(){
+    if(!f.desc.trim()){alert("Please enter a task description.");return;}
+    let pct=Math.min(100,Math.max(0,parseInt(f.pct)||0));
+    if(f.status==="Complete")pct=100;
+    onSave({...task,...f,pct});
   }
-
-  const tabs = [
-    { id:"dashboard", label:"Dashboard" },
-    { id:"tracker",   label:"Task Tracker" },
-    { id:"gantt",     label:"Gantt Chart" },
-    { id:"team",      label:"Committee" },
-  ];
-
-  const visibleTasks = filterStatus === "All" ? tasks : tasks.filter(t => t.status === filterStatus);
-
-  return (
-    <div style={{fontFamily:"'DM Sans', system-ui, sans-serif", background:BRAND.stripe, minHeight:"100vh", color:BRAND.text}}>
-      {/* Header */}
-      <div style={{background:BRAND.darkGreen, padding:"0 24px", display:"flex", alignItems:"center", gap:20, height:58, position:"sticky", top:0, zIndex:100}}>
-        <div style={{display:"flex", alignItems:"center", gap:10}}>
-          <div style={{width:32, height:32, borderRadius:"50%", background:BRAND.light, display:"flex", alignItems:"center", justifyContent:"center"}}>
-            <span style={{fontSize:14, fontWeight:700, color:BRAND.darkGreen}}>NC</span>
-          </div>
-          <div>
-            <div style={{color:BRAND.white, fontWeight:700, fontSize:15, lineHeight:1.1}}>Northumbria Construct</div>
-            <div style={{color:BRAND.light, fontSize:11}}>Oxford Debate Event · 28 April 2026</div>
-          </div>
-        </div>
-        <div style={{flex:1}}/>
-        <div style={{display:"flex", gap:4}}>
-          {tabs.map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)} style={{
-              padding:"6px 14px", borderRadius:20, border:"none", cursor:"pointer", fontSize:12, fontWeight:600,
-              background: tab===t.id ? BRAND.light : "transparent",
-              color: tab===t.id ? BRAND.darkGreen : BRAND.pale,
-              transition:"all .15s"
-            }}>{t.label}</button>
-          ))}
-        </div>
+  const lbl={display:"block",fontSize:10,fontWeight:700,color:B.tg,marginBottom:5,textTransform:"uppercase",letterSpacing:.4};
+  const inp={width:"100%",padding:"8px 11px",border:`1px solid ${B.pl}`,borderRadius:7,color:B.tx,background:B.st,fontSize:12};
+  const g2={display:"grid",gridTemplateColumns:"1fr 1fr",gap:11,marginBottom:13};
+  return <Modal onClose={onClose}>
+    <h3 style={{fontSize:15,fontWeight:700,color:B.dk,marginBottom:18,paddingBottom:10,borderBottom:`1px solid ${B.pl}`}}>{isNew?"+ Add New Task":`✏ Edit Task #${task.id}`}</h3>
+    <div style={{marginBottom:13}}><label style={lbl}>Task Description</label><input style={inp} value={f.desc} onChange={e=>upd("desc",e.target.value)} placeholder="Describe the task…"/></div>
+    <div style={g2}>
+      <div><label style={lbl}>Start Date</label><input style={inp} type="date" value={f.start} onChange={e=>upd("start",e.target.value)}/></div>
+      <div><label style={lbl}>End Date</label><input style={inp} type="date" value={f.end} onChange={e=>upd("end",e.target.value)}/></div>
+    </div>
+    <div style={g2}>
+      <div><label style={lbl}>Status</label>
+        <select style={inp} value={f.status} onChange={e=>upd("status",e.target.value)}>
+          {["Not Started","In Progress","Complete"].map(s=><option key={s}>{s}</option>)}
+        </select>
       </div>
-
-      <div style={{maxWidth:1200, margin:"0 auto", padding:"24px 20px"}}>
-
-        {/* ── DASHBOARD ── */}
-        {tab === "dashboard" && (
-          <div>
-            <h2 style={{fontSize:22, fontWeight:700, color:BRAND.darkGreen, margin:"0 0 4px"}}>Project Dashboard</h2>
-            <p style={{color:BRAND.textGrey, fontSize:13, margin:"0 0 24px"}}>Live planning overview — Oxford Debate, NSU Building – Reds Hall</p>
-
-            {/* KPI cards */}
-            <div style={{display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:14, marginBottom:24}}>
-              {[
-                { label:"Overall Progress", value:`${overallPct}%`, sub:"across 19 tasks", accent:BRAND.midGreen },
-                { label:"Complete",         value:done,             sub:"tasks done",       accent:"#1A5C2A" },
-                { label:"In Progress",      value:inProg,           sub:"tasks active",     accent:"#7A5000" },
-                { label:"Not Started",      value:notStr,           sub:"tasks pending",    accent:"#8B1A1A" },
-              ].map((k,i) => (
-                <div key={i} style={{background:BRAND.white, borderRadius:12, padding:"16px 20px", border:`1px solid ${BRAND.pale}`}}>
-                  <div style={{fontSize:12, color:BRAND.textGrey, fontWeight:600, marginBottom:6, textTransform:"uppercase", letterSpacing:.5}}>{k.label}</div>
-                  <div style={{fontSize:32, fontWeight:700, color:k.accent, lineHeight:1}}>{k.value}</div>
-                  <div style={{fontSize:11, color:BRAND.textGrey, marginTop:4}}>{k.sub}</div>
-                </div>
-              ))}
-            </div>
-
-            {/* Progress bar */}
-            <div style={{background:BRAND.white, borderRadius:12, padding:"20px 24px", border:`1px solid ${BRAND.pale}`, marginBottom:20}}>
-              <div style={{display:"flex", justifyContent:"space-between", marginBottom:10}}>
-                <span style={{fontWeight:600, fontSize:14, color:BRAND.darkGreen}}>Overall Completion</span>
-                <span style={{fontWeight:700, fontSize:14, color:BRAND.midGreen}}>{overallPct}%</span>
-              </div>
-              <div style={{height:10, borderRadius:99, background:BRAND.pale, overflow:"hidden"}}>
-                <div style={{height:"100%", width:`${overallPct}%`, background:`linear-gradient(90deg, ${BRAND.darkGreen}, ${BRAND.light})`, borderRadius:99, transition:"width .5s"}}/>
-              </div>
-              <div style={{display:"flex", gap:16, marginTop:12}}>
-                {[["Complete",done,"#C6EFCE","#1A5C2A"],["In Progress",inProg,"#FFF3CD","#7A5000"],["Not Started",notStr,"#FFE0E0","#8B1A1A"]].map(([l,n,bg,fg])=>(
-                  <div key={l} style={{display:"flex", alignItems:"center", gap:6}}>
-                    <div style={{width:10, height:10, borderRadius:3, background:bg, border:`1px solid ${fg}`}}/>
-                    <span style={{fontSize:12, color:BRAND.textGrey}}>{l}: <b style={{color:fg}}>{n}</b></span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Event info + upcoming tasks */}
-            <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:16}}>
-              <div style={{background:BRAND.white, borderRadius:12, padding:"20px 24px", border:`1px solid ${BRAND.pale}`}}>
-                <div style={{fontWeight:700, fontSize:14, color:BRAND.darkGreen, marginBottom:14}}>Event Details</div>
-                {[
-                  ["Date","28 April 2026"],["Venue","NSU Building – Reds Hall"],["Format","Oxford-Style Debate"],
-                  ["Duration","75–90 minutes"],["Target Audience","~40 students"],["Voting","QR code via Microsoft Forms"],
-                ].map(([l,v])=>(
-                  <div key={l} style={{display:"flex", justifyContent:"space-between", padding:"6px 0", borderBottom:`1px solid ${BRAND.stripe}`}}>
-                    <span style={{fontSize:12, color:BRAND.textGrey}}>{l}</span>
-                    <span style={{fontSize:12, fontWeight:600, color:BRAND.text}}>{v}</span>
-                  </div>
-                ))}
-              </div>
-
-              <div style={{background:BRAND.white, borderRadius:12, padding:"20px 24px", border:`1px solid ${BRAND.pale}`}}>
-                <div style={{fontWeight:700, fontSize:14, color:BRAND.darkGreen, marginBottom:14}}>Upcoming Critical Tasks</div>
-                {tasks.filter(t=>t.status!=="Complete" && t.priority==="Critical" || (t.status!=="Complete" && t.priority==="High")).slice(0,5).map(t=>(
-                  <div key={t.id} style={{display:"flex", alignItems:"center", gap:10, padding:"7px 0", borderBottom:`1px solid ${BRAND.stripe}`}}>
-                    <div style={{width:6, height:6, borderRadius:"50%", background:t.priority==="Critical"?BRAND.darkGreen:BRAND.accent, flexShrink:0}}/>
-                    <div style={{flex:1, fontSize:12, color:BRAND.text}}>{t.desc}</div>
-                    <div style={{fontSize:11, color:BRAND.textGrey, flexShrink:0}}>{t.due}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Debate motions */}
-            <div style={{background:BRAND.white, borderRadius:12, padding:"20px 24px", border:`1px solid ${BRAND.pale}`, marginTop:16}}>
-              <div style={{fontWeight:700, fontSize:14, color:BRAND.darkGreen, marginBottom:14}}>Debate Motions (Select One)</div>
-              {[
-                [1,"This House Believes That Professional Body Membership Is No Longer Essential for Career Progression in Construction.","CIOB, ICE, APM relevance; employability; chartership value"],
-                [2,"This House Believes That Sustainability Targets Are Undermining Project Delivery Efficiency.","ESG requirements, carbon targets, cost and programme pressures"],
-                [3,"This House Believes That Universities Are Failing to Prepare Construction Graduates for Industry.","Curriculum relevance, employability gap, industry readiness"],
-              ].map(([n,m,f])=>(
-                <div key={n} style={{display:"flex", gap:14, padding:"10px 0", borderBottom:`1px solid ${BRAND.stripe}`}}>
-                  <div style={{width:26, height:26, borderRadius:"50%", background:BRAND.pale, display:"flex", alignItems:"center", justifyContent:"center", fontWeight:700, fontSize:12, color:BRAND.midGreen, flexShrink:0}}>{n}</div>
-                  <div>
-                    <div style={{fontSize:12, fontWeight:600, color:BRAND.darkGreen, marginBottom:3}}>"{m}"</div>
-                    <div style={{fontSize:11, color:BRAND.textGrey}}>{f}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ── TASK TRACKER ── */}
-        {tab === "tracker" && (
-          <div>
-            <div style={{display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16}}>
-              <div>
-                <h2 style={{fontSize:22, fontWeight:700, color:BRAND.darkGreen, margin:0}}>Task Tracker</h2>
-                <p style={{color:BRAND.textGrey, fontSize:13, margin:"4px 0 0"}}>Click status to update — single source of truth</p>
-              </div>
-              <div style={{display:"flex", gap:6}}>
-                {["All","Complete","In Progress","Not Started"].map(s=>(
-                  <button key={s} onClick={()=>setFilterStatus(s)} style={{
-                    padding:"6px 12px", borderRadius:20, border:`1px solid ${filterStatus===s?BRAND.accent:BRAND.pale}`,
-                    background:filterStatus===s?BRAND.pale:"transparent", color:filterStatus===s?BRAND.midGreen:BRAND.textGrey,
-                    fontSize:12, fontWeight:600, cursor:"pointer"
-                  }}>{s}</button>
-                ))}
-              </div>
-            </div>
-
-            <div style={{background:BRAND.white, borderRadius:12, border:`1px solid ${BRAND.pale}`, overflow:"hidden"}}>
-              {/* Table header */}
-              <div style={{display:"grid", gridTemplateColumns:"40px 1fr 140px 80px 80px 130px 90px", gap:0, background:BRAND.darkGreen, padding:"10px 16px"}}>
-                {["#","Task","Owner","Start","Due","Status","Done"].map((h,i)=>(
-                  <div key={i} style={{fontSize:11, fontWeight:700, color:BRAND.pale, textTransform:"uppercase", letterSpacing:.5}}>{h}</div>
-                ))}
-              </div>
-              {visibleTasks.map((t, ri) => {
-                const sc = statusColors[t.status] || statusColors["Not Started"];
-                const isEditing = editId === t.id;
-                return (
-                  <div key={t.id} style={{
-                    display:"grid", gridTemplateColumns:"40px 1fr 140px 80px 80px 130px 90px",
-                    gap:0, padding:"10px 16px", alignItems:"center",
-                    background: ri%2===0 ? BRAND.white : BRAND.stripe,
-                    borderBottom:`1px solid ${BRAND.pale}`,
-                    borderLeft: t.priority==="Critical" ? `3px solid ${BRAND.darkGreen}` : t.priority==="High" ? `3px solid ${BRAND.accent}` : "3px solid transparent"
-                  }}>
-                    <div style={{fontSize:12, color:BRAND.textGrey, fontWeight:600}}>{t.id}</div>
-                    <div>
-                      <div style={{fontSize:13, fontWeight:t.id===17?700:500, color:t.id===17?BRAND.darkGreen:BRAND.text}}>{t.desc}</div>
-                      <div style={{fontSize:11, color:BRAND.textGrey, marginTop:2}}>{t.notes}</div>
-                    </div>
-                    <div style={{fontSize:12, color:BRAND.textMid}}>{t.owner}</div>
-                    <div style={{fontSize:11, color:BRAND.textGrey}}>{t.start}</div>
-                    <div style={{fontSize:11, color:BRAND.textGrey}}>{t.due}</div>
-                    <div>
-                      {isEditing ? (
-                        <select value={editStatus} onChange={e=>setEditStatus(e.target.value)}
-                          style={{fontSize:11, padding:"3px 6px", borderRadius:6, border:`1px solid ${BRAND.accent}`, background:BRAND.pale, color:BRAND.darkGreen, width:"100%"}}>
-                          {["Not Started","In Progress","Complete"].map(s=><option key={s}>{s}</option>)}
-                        </select>
-                      ) : (
-                        <button onClick={()=>{setEditId(t.id);setEditStatus(t.status);setEditPct(t.pct);}} style={{
-                          fontSize:11, padding:"3px 10px", borderRadius:20, border:`1px solid ${sc.border}`,
-                          background:sc.bg, color:sc.fg, cursor:"pointer", fontWeight:600, width:"100%"
-                        }}>{t.status}</button>
-                      )}
-                    </div>
-                    <div>
-                      {isEditing ? (
-                        <div style={{display:"flex", gap:4, alignItems:"center"}}>
-                          <input type="number" min={0} max={100} value={editPct} onChange={e=>setEditPct(Number(e.target.value))}
-                            style={{width:44, fontSize:11, padding:"3px 4px", borderRadius:6, border:`1px solid ${BRAND.accent}`}}/>
-                          <button onClick={()=>updateTask(t.id, editStatus, editPct)} style={{fontSize:11, padding:"3px 7px", borderRadius:6, background:BRAND.darkGreen, color:"white", border:"none", cursor:"pointer"}}>✓</button>
-                          <button onClick={()=>setEditId(null)} style={{fontSize:11, padding:"3px 6px", borderRadius:6, background:BRAND.pale, color:BRAND.textGrey, border:"none", cursor:"pointer"}}>✕</button>
-                        </div>
-                      ) : (
-                        <div style={{display:"flex", alignItems:"center", gap:6}}>
-                          <div style={{flex:1, height:5, borderRadius:99, background:BRAND.pale, overflow:"hidden"}}>
-                            <div style={{height:"100%", width:`${t.pct}%`, background:t.pct===100?BRAND.midGreen:BRAND.light, borderRadius:99}}/>
-                          </div>
-                          <span style={{fontSize:11, color:BRAND.textGrey, minWidth:28}}>{t.pct}%</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            <div style={{marginTop:10, fontSize:11, color:BRAND.textGrey}}>
-              Left border: <span style={{color:BRAND.darkGreen, fontWeight:700}}>■</span> Critical &nbsp; <span style={{color:BRAND.accent, fontWeight:700}}>■</span> High &nbsp; Click any status badge to update.
-            </div>
-          </div>
-        )}
-
-        {/* ── GANTT ── */}
-        {tab === "gantt" && (
-          <div>
-            <h2 style={{fontSize:22, fontWeight:700, color:BRAND.darkGreen, margin:"0 0 4px"}}>Gantt Chart</h2>
-            <p style={{color:BRAND.textGrey, fontSize:13, margin:"0 0 16px"}}>6 April – 3 May 2026 · Shaded columns = weekends</p>
-            <div style={{background:BRAND.white, borderRadius:12, border:`1px solid ${BRAND.pale}`, overflow:"auto"}}>
-              <table style={{borderCollapse:"collapse", width:"100%", minWidth:900}}>
-                <thead>
-                  <tr style={{background:BRAND.darkGreen}}>
-                    <th style={{padding:"8px 12px", textAlign:"left", color:BRAND.pale, fontSize:11, fontWeight:700, width:30}}>#</th>
-                    <th style={{padding:"8px 12px", textAlign:"left", color:BRAND.pale, fontSize:11, fontWeight:700, width:200}}>Task</th>
-                    <th style={{padding:"8px 12px", textAlign:"left", color:BRAND.pale, fontSize:11, fontWeight:700, width:110}}>Owner</th>
-                    {DAYS.map(d => (
-                      <th key={d} style={{
-                        padding:"6px 2px", textAlign:"center",
-                        color: weekends.includes(d) ? BRAND.textGrey : BRAND.pale,
-                        fontSize:9, fontWeight:600, width:22,
-                        background: weekends.includes(d) ? BRAND.midGreen : BRAND.darkGreen,
-                      }}>{DAY_LABELS[d]}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {tasks.map((t, ri) => (
-                    <tr key={t.id} style={{background: ri%2===0 ? BRAND.white : BRAND.stripe}}>
-                      <td style={{padding:"6px 12px", fontSize:11, color:BRAND.textGrey, fontWeight:600}}>{t.id}</td>
-                      <td style={{padding:"6px 12px", fontSize:11, color:t.id===17?BRAND.darkGreen:BRAND.text, fontWeight:t.id===17?700:400, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", maxWidth:200}}>{t.desc}</td>
-                      <td style={{padding:"6px 12px", fontSize:11, color:BRAND.textMid, whiteSpace:"nowrap"}}>{t.owner.length>14?t.owner.slice(0,13)+"…":t.owner}</td>
-                      {DAYS.map(d => {
-                        const inBar = d >= t.startD && d <= t.endD;
-                        const isMile = t.id === 17;
-                        const isDone = t.status === "Complete";
-                        const isWknd = weekends.includes(d);
-                        return (
-                          <td key={d} style={{
-                            padding:2, textAlign:"center",
-                            background: inBar
-                              ? (isMile ? BRAND.light : isDone ? BRAND.midGreen : BRAND.accent)
-                              : isWknd ? "#E8F0EB" : "transparent",
-                            borderLeft: inBar && d===t.startD ? `2px solid ${BRAND.darkGreen}` : undefined,
-                            borderRight: inBar && d===t.endD ? `2px solid ${BRAND.darkGreen}` : undefined,
-                          }}>
-                            {inBar && isMile && <span style={{fontSize:10, color:BRAND.darkGreen}}>★</span>}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div style={{display:"flex", gap:16, marginTop:10}}>
-              {[["Planned",BRAND.accent],[`Complete`,BRAND.midGreen],["Milestone",BRAND.light],["Weekend","#E8F0EB"]].map(([l,c])=>(
-                <div key={l} style={{display:"flex", alignItems:"center", gap:5}}>
-                  <div style={{width:14, height:10, borderRadius:2, background:c, border:`1px solid ${BRAND.accent}44`}}/>
-                  <span style={{fontSize:11, color:BRAND.textGrey}}>{l}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ── COMMITTEE ── */}
-        {tab === "team" && (
-          <div>
-            <h2 style={{fontSize:22, fontWeight:700, color:BRAND.darkGreen, margin:"0 0 4px"}}>Committee & Roles</h2>
-            <p style={{color:BRAND.textGrey, fontSize:13, margin:"0 0 20px"}}>Northumbria Construct Event Planning Committee</p>
-
-            <div style={{display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(300px,1fr))", gap:14, marginBottom:28}}>
-              {committee.map((m,i) => (
-                <div key={i} style={{background:BRAND.white, borderRadius:12, padding:"16px 20px", border:`1px solid ${BRAND.pale}`, display:"flex", gap:14, alignItems:"flex-start"}}>
-                  <div style={{width:44, height:44, borderRadius:"50%", background:areaColor(m.area), display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0}}>
-                    <span style={{fontSize:14, fontWeight:700, color:"#fff"}}>{initials(m.name)}</span>
-                  </div>
-                  <div style={{flex:1, minWidth:0}}>
-                    <div style={{fontWeight:700, fontSize:13, color:BRAND.darkGreen}}>{m.name}</div>
-                    <div style={{fontSize:11, color:BRAND.accent, fontWeight:600, marginBottom:6}}>{m.role}</div>
-                    <div style={{fontSize:11, color:BRAND.textGrey, lineHeight:1.5}}>{m.resp}</div>
-                    <div style={{marginTop:8}}>
-                      <span style={{fontSize:10, padding:"2px 8px", borderRadius:20, background:BRAND.pale, color:BRAND.midGreen, fontWeight:600}}>{m.area}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div style={{background:BRAND.white, borderRadius:12, border:`1px solid ${BRAND.pale}`, overflow:"hidden"}}>
-              <div style={{background:BRAND.midGreen, padding:"12px 20px"}}>
-                <div style={{fontWeight:700, fontSize:14, color:BRAND.white}}>Core Delivery Roles</div>
-              </div>
-              {[
-                ["Event Lead","Overall coordination; liaison with NSU and venue booking","TBC","Critical path owner"],
-                ["Debate Chair / Moderator","Neutral facilitation; Oxford rules; strict timekeeping","TBC","Academic/senior student — drop-dead 9 Apr"],
-                ["Proposition Team (2–3)","Argue in favour of the motion","TBC","Drop-dead: 15 April"],
-                ["Opposition Team (2–3)","Argue against the motion","TBC","Drop-dead: 15 April"],
-                ["Logistics Lead","Room setup, AV, seating, signage","TBC","Reds Hall access"],
-                ["Comms & Engagement Lead","Promotion, registration, attendance tracking","TBC","LinkedIn + MS Forms"],
-              ].map(([role,resp,who,note],i)=>(
-                <div key={i} style={{
-                  display:"grid", gridTemplateColumns:"200px 1fr 80px 200px",
-                  padding:"10px 20px", alignItems:"center",
-                  background:i%2===0?BRAND.white:BRAND.stripe,
-                  borderBottom:`1px solid ${BRAND.pale}`
-                }}>
-                  <div style={{fontSize:12, fontWeight:600, color:BRAND.darkGreen}}>{role}</div>
-                  <div style={{fontSize:11, color:BRAND.textMid}}>{resp}</div>
-                  <div style={{fontSize:11, color:BRAND.textGrey, textAlign:"center"}}>{who}</div>
-                  <div style={{fontSize:11, color:BRAND.textGrey, fontStyle:"italic"}}>{note}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+      <div><label style={lbl}>Priority</label>
+        <select style={inp} value={f.pri} onChange={e=>upd("pri",e.target.value)}>
+          {["Low","Medium","High","Critical"].map(p=><option key={p}>{p}</option>)}
+        </select>
       </div>
     </div>
-  );
+    <div style={g2}>
+      <div><label style={lbl}>Owner</label>
+        <select style={inp} value={f.owner} onChange={e=>upd("owner",e.target.value)}>
+          {TEAM.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
+        </select>
+      </div>
+      <div><label style={lbl}>% Complete</label><input style={inp} type="number" min={0} max={100} value={f.pct} onChange={e=>upd("pct",e.target.value)}/></div>
+    </div>
+    <div style={{marginBottom:13}}><label style={lbl}>Dependencies (task IDs)</label><input style={inp} value={f.deps} onChange={e=>upd("deps",e.target.value)} placeholder="e.g. 1,3"/></div>
+    <div style={{marginBottom:18}}><label style={lbl}>Notes</label><textarea style={{...inp,height:70,resize:"vertical"}} value={f.notes} onChange={e=>upd("notes",e.target.value)}/></div>
+    <div style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
+      <button onClick={submit} style={{background:B.dk,color:"#fff",padding:"9px 20px",borderRadius:7,fontSize:12,fontWeight:600,border:"none",cursor:"pointer"}}>💾 {isNew?"Add Task":"Save Changes"}</button>
+      <div style={{display:"flex",gap:8}}>
+        <button onClick={onClose} style={{background:B.pl,color:B.md,padding:"9px 18px",borderRadius:7,fontSize:12,fontWeight:600,border:"none",cursor:"pointer"}}>Cancel</button>
+        {!isNew&&task.id>1&&<button onClick={()=>onDelete(task.id)} style={{background:"#FFE0E0",color:"#8B1A1A",padding:"9px 18px",borderRadius:7,fontSize:12,fontWeight:600,border:"none",cursor:"pointer"}}>🗑 Delete</button>}
+      </div>
+    </div>
+  </Modal>;
+}
+
+// ════════════════════════════════════════════════════════════
+// DASHBOARD
+// ════════════════════════════════════════════════════════════
+function Dashboard({tasks,onNav}){
+  const done=tasks.filter(t=>t.status==="Complete").length;
+  const inp=tasks.filter(t=>t.status==="In Progress").length;
+  const ns=tasks.filter(t=>t.status==="Not Started").length;
+  const pct=calcPct(tasks);
+  const dLeft=Math.max(0,Math.round((new Date("2026-04-28")-new Date())/86400000));
+  const urgent=tasks.filter(t=>t.status!=="Complete"&&(t.pri==="Critical"||t.pri==="High")).slice(0,6);
+  return <div>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:18,flexWrap:"wrap",gap:10}}>
+      <SecHead title="Project Dashboard" sub="Oxford Debate · NSU Building, Reds Hall · 28 April 2026"/>
+      <div style={{background:B.dk,color:B.lt,padding:"10px 20px",borderRadius:10,textAlign:"center",flexShrink:0}}>
+        <div style={{fontSize:28,fontWeight:700,lineHeight:1}}>{dLeft}</div>
+        <div style={{fontSize:10,marginTop:2}}>days to event</div>
+      </div>
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:16}}>
+      {[{l:"Progress",v:`${pct}%`,s:`${tasks.length} tasks`,c:B.md},{l:"Complete",v:done,s:"finished",c:"#1A5C2A"},{l:"In Progress",v:inp,s:"active",c:"#7A5000"},{l:"Not Started",v:ns,s:"pending",c:"#8B1A1A"}].map((k,i)=>
+        <Card key={i} style={{padding:"14px 18px"}}>
+          <div style={{fontSize:10,color:B.tg,fontWeight:600,textTransform:"uppercase",letterSpacing:.5,marginBottom:6}}>{k.l}</div>
+          <div style={{fontSize:28,fontWeight:700,color:k.c,lineHeight:1}}>{k.v}</div>
+          <div style={{fontSize:10,color:B.tg,marginTop:4}}>{k.s}</div>
+        </Card>
+      )}
+    </div>
+    <Card style={{marginBottom:14}}>
+      <div style={{display:"flex",justifyContent:"space-between",marginBottom:9}}><span style={{fontWeight:700,fontSize:13,color:B.dk}}>Overall Completion</span><span style={{fontWeight:700,color:B.md}}>{pct}%</span></div>
+      <Pbar pct={pct} h={10} done={pct===100}/>
+      <div style={{display:"flex",gap:18,marginTop:11,flexWrap:"wrap"}}>
+        {[["Complete",done,"#C6EFCE","#1A5C2A"],["In Progress",inp,"#FFF3CD","#7A5000"],["Not Started",ns,"#FFE0E0","#8B1A1A"]].map(([l,n,bg,fg])=>
+          <div key={l} style={{display:"flex",alignItems:"center",gap:6}}>
+            <div style={{width:10,height:10,borderRadius:3,background:bg,border:`1px solid ${fg}`}}/>
+            <span style={{fontSize:11,color:B.tg}}>{l}: <b style={{color:fg}}>{n}</b></span>
+          </div>
+        )}
+      </div>
+    </Card>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+      <Card>
+        <div style={{fontWeight:700,fontSize:13,color:B.dk,marginBottom:13}}>📋 Event Details</div>
+        {[["Date","28 April 2026"],["Venue","NSU Building – Reds Hall"],["Format","Oxford-Style Debate"],["Duration","75–90 minutes"],["Audience","~30 students"],["Target","25+ attendance"],["Voting","QR code – MS Forms"],["Motion","Lean vs BIM (TBC)"]].map(([l,v])=>
+          <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:`1px solid ${B.st}`}}>
+            <span style={{fontSize:11,color:B.tg}}>{l}</span>
+            <span style={{fontSize:11,fontWeight:600,color:B.tx}}>{v}</span>
+          </div>
+        )}
+      </Card>
+      <Card>
+        <div style={{fontWeight:700,fontSize:13,color:B.dk,marginBottom:13}}>🔴 High Priority Tasks</div>
+        {urgent.length===0
+          ?<div style={{fontSize:12,color:"#1A5C2A",textAlign:"center",padding:20}}>🎉 All high priority tasks done!</div>
+          :urgent.map(t=><div key={t.id} onClick={()=>onNav("tasks")} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:`1px solid ${B.st}`,cursor:"pointer"}}>
+            <div style={{width:6,height:6,borderRadius:"50%",background:t.pri==="Critical"?B.dk:B.ac,flexShrink:0}}/>
+            <div style={{flex:1,fontSize:11,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.desc}</div>
+            <span style={{fontSize:10,color:B.tg,flexShrink:0}}>{fmtDate(t.end)}</span>
+            <Badge label={t.status}/>
+          </div>)
+        }
+      </Card>
+    </div>
+    <Card>
+      <div style={{fontWeight:700,fontSize:13,color:B.dk,marginBottom:14}}>👥 Team Workload</div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:12}}>
+        {TEAM.map(m=>{
+          const mt=tasks.filter(t=>t.owner===m.id);
+          const mp=calcPct(mt);
+          return <div key={m.id} onClick={()=>onNav("team")} style={{textAlign:"center",padding:"14px 8px",background:B.st,borderRadius:10,cursor:"pointer"}}>
+            <Avatar name={m.name} area={m.area} size={38}/>
+            <div style={{fontSize:11,fontWeight:600,color:B.dk,marginTop:7}}>{m.name.split(" ")[0]}</div>
+            <div style={{fontSize:9,color:B.tg,marginTop:2}}>{mt.length} tasks</div>
+            <Pbar pct={mp} h={4} style={{marginTop:7}}/>
+            <div style={{fontSize:10,color:B.md,fontWeight:600,marginTop:3}}>{mp}%</div>
+          </div>;
+        })}
+      </div>
+    </Card>
+  </div>;
+}
+
+// ════════════════════════════════════════════════════════════
+// TASK TRACKER
+// ════════════════════════════════════════════════════════════
+function TaskTracker({tasks,setTasks,setToast}){
+  const [modal,setModal]=useState(null);
+  const [filter,setFilter]=useState("All");
+  const visible=filter==="All"?tasks:tasks.filter(t=>t.status===filter);
+  function handleSave(saved){
+    if(!saved.id){const nid=tasks.length?Math.max(...tasks.map(t=>t.id))+1:1;setTasks(ts=>[...ts,{...saved,id:nid}]);setToast("✓ Task added");}
+    else{setTasks(ts=>ts.map(t=>t.id===saved.id?saved:t));setToast(`✓ Task #${saved.id} updated`);}
+    setModal(null);
+  }
+  function handleDelete(id){
+    if(!window.confirm(`Delete task #${id}?`))return;
+    setTasks(ts=>ts.filter(t=>t.id!==id));setModal(null);setToast(`Task #${id} deleted`);
+  }
+  const cols="36px 1fr 110px 75px 75px 120px 95px 100px 28px";
+  return <div>
+    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:10}}>
+      <SecHead title="Task Tracker" sub="Click any row to edit · changes reflect on Gantt & RACI"/>
+      <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+        <div style={{display:"flex",gap:4}}>
+          {["All","Complete","In Progress","Not Started"].map(s=>
+            <button key={s} onClick={()=>setFilter(s)} style={{padding:"5px 11px",borderRadius:20,border:`1px solid ${filter===s?B.ac:B.pl}`,background:filter===s?B.pl:"transparent",color:filter===s?B.md:B.tg,fontSize:11,fontWeight:600,cursor:"pointer"}}>{s}</button>
+          )}
+        </div>
+        <button onClick={()=>setModal({desc:"",start:"2026-04-06",end:"2026-04-07",status:"Not Started",pri:"High",owner:TEAM[0].id,pct:0,deps:"",notes:""})}
+          style={{background:B.dk,color:"#fff",padding:"7px 16px",borderRadius:8,fontSize:12,fontWeight:600,border:"none",cursor:"pointer"}}>+ Add Task</button>
+      </div>
+    </div>
+    <div style={{background:B.wh,borderRadius:12,border:`1px solid ${B.pl}`,overflow:"hidden"}}>
+      <div style={{display:"grid",gridTemplateColumns:cols,gap:0,background:B.dk,padding:"10px 16px",borderRadius:"12px 12px 0 0"}}>
+        {["#","Task Description","Owner","Start","Due","Status","Priority","Progress",""].map((h,i)=>
+          <div key={i} style={{fontSize:10,fontWeight:700,color:B.pl,textTransform:"uppercase",letterSpacing:.4}}>{h}</div>
+        )}
+      </div>
+      {visible.map((t,ri)=>{
+        const m=memberObj(t.owner);
+        return <div key={t.id} onClick={()=>setModal(t)}
+          style={{display:"grid",gridTemplateColumns:cols,gap:0,padding:"9px 16px",alignItems:"center",background:ri%2===0?B.wh:B.st,borderBottom:`1px solid ${B.pl}`,borderLeft:`3px solid ${t.pri==="Critical"?B.dk:t.pri==="High"?B.ac:"transparent"}`,cursor:"pointer"}}
+          onMouseEnter={e=>e.currentTarget.style.background=B.pl}
+          onMouseLeave={e=>e.currentTarget.style.background=ri%2===0?B.wh:B.st}>
+          <div style={{fontSize:10,color:B.tg,fontWeight:600}}>{t.id}</div>
+          <div>
+            <div style={{fontSize:12,fontWeight:t.id===17?700:500,color:t.id===17?B.dk:B.tx}}>{t.id===17?"⭐ ":""}{t.desc}</div>
+            <div style={{fontSize:10,color:B.tg,marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:240}}>{t.notes}</div>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:5}}>
+            <Avatar name={m.name} area={m.area} size={22}/>
+            <span style={{fontSize:10,color:B.tm,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.name.split(" ")[0]}</span>
+          </div>
+          <div style={{fontSize:10,color:B.tg}}>{fmtDate(t.start)}</div>
+          <div style={{fontSize:10,color:B.tg}}>{fmtDate(t.end)}</div>
+          <Badge label={t.status}/>
+          <PriBadge label={t.pri}/>
+          <div style={{display:"flex",alignItems:"center",gap:5}}><Pbar pct={t.pct} done={t.pct===100}/><span style={{fontSize:9,color:B.tg,minWidth:28}}>{t.pct}%</span></div>
+          <div style={{color:B.ac,fontSize:13}}>✏</div>
+        </div>;
+      })}
+    </div>
+    <div style={{marginTop:9,fontSize:10,color:B.tg}}><span style={{color:B.dk,fontWeight:700}}>▌</span> Critical &nbsp;<span style={{color:B.ac,fontWeight:700}}>▌</span> High · Click any row to edit</div>
+    {modal!==null&&<TaskModal task={modal} onSave={handleSave} onDelete={handleDelete} onClose={()=>setModal(null)}/>}
+  </div>;
+}
+
+// ════════════════════════════════════════════════════════════
+// GANTT
+// ════════════════════════════════════════════════════════════
+function GanttChart({tasks,onEdit}){
+  const days=Array.from({length:GANTT_DAYS},(_,i)=>{
+    const d=new Date("2026-04-06T12:00:00");d.setDate(d.getDate()+i);
+    const isW=d.getDay()===0||d.getDay()===6;
+    const isMile=i===22;
+    return{i,isW,isMile,lbl:isMile?"28⭐":d.getMonth()===4?`${d.getDate()}/5`:String(d.getDate())};
+  });
+  const barCol=t=>t.id===17?"#FFD700":t.status==="Complete"?B.dk:t.status==="In Progress"?B.ac:B.md;
+  return <div>
+    <SecHead title="Gantt Chart" sub="6 April – 8 May 2026 · ⭐ = Event Day · Shaded = weekends · Click task name to edit"/>
+    <div style={{overflowX:"auto",borderRadius:12,border:`1px solid ${B.pl}`}}>
+      <table style={{borderCollapse:"collapse",minWidth:900,width:"100%",tableLayout:"fixed"}}>
+        <colgroup><col style={{width:28}}/><col style={{width:200}}/><col style={{width:80}}/>{days.map((_,i)=><col key={i} style={{width:`${100/GANTT_DAYS}%`}}/>)}</colgroup>
+        <thead>
+          <tr>
+            <th colSpan={3} style={{background:B.dk,padding:"8px 12px",textAlign:"left",color:B.pl,fontSize:10,fontWeight:700}}>Task</th>
+            <th colSpan={GANTT_DAYS} style={{background:B.dk,padding:"8px 6px",textAlign:"center",color:B.lt,fontSize:10,fontWeight:700}}>April 2026 → May 2026</th>
+          </tr>
+          <tr style={{background:B.dk}}>
+            <th style={{padding:"6px 10px",color:B.pl,fontSize:10,fontWeight:700,textAlign:"left"}}>#</th>
+            <th style={{padding:"6px 10px",color:B.pl,fontSize:10,fontWeight:700,textAlign:"left"}}>Task</th>
+            <th style={{padding:"6px 10px",color:B.pl,fontSize:10,fontWeight:700,textAlign:"left"}}>Owner</th>
+            {days.map(d=><th key={d.i} style={{padding:"4px 1px",textAlign:"center",fontSize:d.isMile?9:8,fontWeight:d.isMile?700:600,color:d.isW?"rgba(116,198,157,.7)":d.isMile?"#FFD700":B.pl,background:d.isW?"rgba(0,0,0,.18)":B.dk,borderLeft:d.isMile?"2px solid rgba(255,215,0,.4)":undefined}}>{d.lbl}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {tasks.map((t,ri)=>{
+            const m=memberObj(t.owner);
+            const gl=ganttOffset(t.start);
+            const gw=ganttWidth(t.start,t.end);
+            const bc=barCol(t);
+            const bg=ri%2===0?B.wh:B.st;
+            return <tr key={t.id} style={{background:bg}}>
+              <td style={{padding:"5px 10px",fontSize:10,color:B.tg,fontWeight:600}}>{t.id}</td>
+              <td style={{padding:"5px 10px",cursor:"pointer"}} onClick={()=>onEdit(t)}>
+                <div style={{fontSize:11,fontWeight:t.id===17?700:400,color:t.id===17?B.dk:B.tx,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{t.id===17?"⭐ ":""}{t.desc}</div>
+                <div style={{fontSize:9,color:B.tg}}>{fmtDate(t.start)} → {fmtDate(t.end)}</div>
+              </td>
+              <td style={{padding:"5px 10px",fontSize:10,color:B.tm,whiteSpace:"nowrap"}}>{m.name.split(" ")[0]}</td>
+              {days.map(d=>{
+                const inBar=d.i>=gl&&d.i<gl+gw;
+                const isStart=inBar&&d.i===gl;
+                const isEnd=inBar&&d.i===gl+gw-1;
+                return <td key={d.i} style={{padding:"4px 1px",height:32,textAlign:"center",background:inBar?bc:d.isW?"rgba(116,198,157,.08)":"transparent",borderLeft:d.isMile?"1px dashed rgba(255,215,0,.35)":undefined,borderRadius:isStart?"4px 0 0 4px":isEnd?"0 4px 4px 0":undefined}}>
+                  {inBar&&t.id===17&&d.i===gl&&<span style={{fontSize:12}}>⭐</span>}
+                </td>;
+              })}
+            </tr>;
+          })}
+        </tbody>
+      </table>
+    </div>
+    <div style={{display:"flex",gap:18,marginTop:11,flexWrap:"wrap"}}>
+      {[["Planned",B.md],["In Progress",B.ac],["Complete",B.dk],["Milestone","#FFD700"],["Weekend","rgba(116,198,157,.15)"]].map(([l,c])=>
+        <div key={l} style={{display:"flex",alignItems:"center",gap:5}}>
+          <div style={{width:14,height:9,borderRadius:2,background:c,border:"1px solid rgba(0,0,0,.1)"}}/>
+          <span style={{fontSize:10,color:B.tg}}>{l}</span>
+        </div>
+      )}
+      <span style={{fontSize:10,color:B.tg,marginLeft:"auto"}}>Click task name to edit</span>
+    </div>
+  </div>;
+}
+
+// ════════════════════════════════════════════════════════════
+// RACI
+// ════════════════════════════════════════════════════════════
+function RaciMatrix({tasks,raci,setRaci}){
+  function cycle(taskId,memberId){
+    setRaci(prev=>{
+      const row=prev[taskId]||{};
+      const cur=row[memberId]||"";
+      const next=RACI_CYCLE[(RACI_CYCLE.indexOf(cur)+1)%RACI_CYCLE.length];
+      return{...prev,[taskId]:{...row,[memberId]:next}};
+    });
+  }
+  const warns=tasks.filter(t=>{const r=raci[t.id]||{};const v=Object.values(r);return!v.includes("R")||!v.includes("A");});
+  return <div>
+    <SecHead title="RACI Responsibility Matrix" sub="R = Responsible · A = Accountable · C = Consulted · I = Informed · Click any cell to cycle"/>
+    <div style={{display:"flex",gap:10,marginBottom:14,flexWrap:"wrap"}}>
+      {[["R","Responsible","Does the work"],["A","Accountable","Owns the outcome"],["C","Consulted","Input required"],["I","Informed","Kept in loop"]].map(([v,l,d])=>{
+        const rs=RACI_STYLE[v];
+        return <div key={v} style={{display:"flex",alignItems:"center",gap:7,padding:"6px 12px",background:B.wh,borderRadius:8,border:`1px solid ${B.pl}`}}>
+          <div style={{width:26,height:26,borderRadius:5,background:rs.bg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:rs.fg,flexShrink:0}}>{v}</div>
+          <div><div style={{fontSize:11,fontWeight:600,color:B.dk}}>{l}</div><div style={{fontSize:9,color:B.tg}}>{d}</div></div>
+        </div>;
+      })}
+    </div>
+    {warns.length>0&&<div style={{background:"#FFF3CD",border:"1px solid #F0C040",borderRadius:8,padding:"10px 14px",marginBottom:12,fontSize:11,color:"#7A5000"}}>⚠ {warns.length} task{warns.length>1?"s":""} missing R or A: {warns.map(t=>`#${t.id}`).join(", ")}</div>}
+    <div style={{overflowX:"auto",background:B.wh,borderRadius:12,border:`1px solid ${B.pl}`}}>
+      <table style={{borderCollapse:"collapse",minWidth:700,width:"100%"}}>
+        <thead>
+          <tr style={{background:B.dk}}>
+            <th style={{padding:"10px 14px",textAlign:"left",color:B.pl,fontSize:10,fontWeight:700,width:36}}>#</th>
+            <th style={{padding:"10px 14px",textAlign:"left",color:B.pl,fontSize:10,fontWeight:700,minWidth:180}}>Task</th>
+            {TEAM.map(m=><th key={m.id} style={{padding:"10px 8px",textAlign:"center",color:B.pl,fontSize:10,fontWeight:700,minWidth:80}}>
+              <Avatar name={m.name} area={m.area} size={26}/>
+              <div style={{marginTop:4,fontSize:9}}>{m.name.split(" ")[0]}</div>
+            </th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {tasks.map((t,ri)=>{
+            const row=raci[t.id]||{};
+            const hasR=Object.values(row).includes("R");
+            const hasA=Object.values(row).includes("A");
+            return <tr key={t.id} style={{background:ri%2===0?B.wh:B.st}}>
+              <td style={{padding:"8px 14px",fontSize:10,color:B.tg,fontWeight:600}}>{t.id}</td>
+              <td style={{padding:"8px 14px"}}>
+                <div style={{fontSize:11,color:B.tx}}>{t.desc}</div>
+                {(!hasR||!hasA)&&<div style={{fontSize:9,color:"#7A5000"}}>⚠ Missing {!hasR?"R":""}{!hasR&&!hasA?" & ":""}{!hasA?"A":""}</div>}
+              </td>
+              {TEAM.map(m=>{
+                const v=row[m.id]||"";
+                const rs=RACI_STYLE[v]||RACI_STYLE[""];
+                return <td key={m.id} style={{padding:"5px 8px",textAlign:"center"}}>
+                  <div onClick={()=>cycle(t.id,m.id)} title={`${m.name}: ${v||"unassigned"}`}
+                    style={{width:36,height:36,borderRadius:6,margin:"0 auto",background:rs.bg,color:rs.fg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,cursor:"pointer",border:v?"none":"1.5px dashed #ddd",transition:"transform .15s",userSelect:"none"}}
+                    onMouseEnter={e=>e.currentTarget.style.transform="scale(1.15)"}
+                    onMouseLeave={e=>e.currentTarget.style.transform="scale(1)"}>
+                    {v||"+"}
+                  </div>
+                </td>;
+              })}
+            </tr>;
+          })}
+        </tbody>
+      </table>
+    </div>
+    <div style={{marginTop:10,fontSize:10,color:B.tg}}>Click any cell to cycle R → A → C → I → empty · Each task should have one R and one A</div>
+  </div>;
+}
+
+// ════════════════════════════════════════════════════════════
+// TEAM
+// ════════════════════════════════════════════════════════════
+function Team({tasks}){
+  const coreRoles=[
+    {role:"Project Manager",        resp:"Overall coordination; liaison with NSU and venue booking",             who:"Tolulope Idowu",                                                                       status:"Assigned"},
+    {role:"Debate Chair / Moderator",resp:"Neutral facilitation; Oxford rules; strict timekeeping",              who:"Shortlist: Kelechi Ayanso · Barry Gledson · Michelle Littlemore · Pablo Martinez",      status:"Shortlisted"},
+    {role:"Proposition Team (2–3)", resp:"Argue in favour of the motion",                                        who:"Kufre Antia (lead) · Laye · Kufre · Lucas · Ikechukwu · Vemula · Maria",              status:"In Selection"},
+    {role:"Opposition Team (2–3)",  resp:"Argue against the motion",                                             who:"Kufre Antia (lead) · TBC",                                                             status:"Open"},
+    {role:"Logistics Lead",         resp:"Reds Hall access, room setup, AV, seating, signage",                  who:"Uchechukwu Maduwuba",                                                                  status:"Assigned"},
+    {role:"Comms & Engagement",     resp:"Promotion, registration, attendance tracking",                         who:"All team",                                                                              status:"Active"},
+  ];
+  const stBadge=s=>s==="Assigned"||s==="Active"?{bg:"#C6EFCE",fg:"#1A5C2A"}:s==="Shortlisted"||s==="In Selection"?{bg:"#FFF3CD",fg:"#7A5000"}:{bg:"#FFE0E0",fg:"#8B1A1A"};
+  const risks=[["Low attendance","Medium","Over-invite 60–70, target specific programmes"],["Speaker no-shows","Low–Medium","Identify reserve speakers in advance"],["Debate overruns","Medium","Strong Chair, strict time enforcement"],["Low audience participation","Medium","Pre-seeded questions and prompts prepared"],["Venue issues","Low","Confirm AV & room with Uchechukwu by 21 Apr"]];
+  const rc=l=>l==="Low"?{bg:"#C6EFCE",fg:"#1A5C2A"}:l.includes("Low")?{bg:"#FFF3CD",fg:"#7A5000"}:{bg:"#FFE0E0",fg:"#8B1A1A"};
+  return <div>
+    <SecHead title="Committee & Delivery Roles" sub="Northumbria Construct Event Planning Committee · Oxford Debate · 28 April 2026"/>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(290px,1fr))",gap:13,marginBottom:22}}>
+      {TEAM.map(m=>{
+        const mt=tasks.filter(t=>t.owner===m.id);
+        const mp=calcPct(mt);
+        const mc=mt.filter(t=>t.status==="Complete").length;
+        return <Card key={m.id} style={{display:"flex",gap:13,alignItems:"flex-start"}}>
+          <Avatar name={m.name} area={m.area} size={44}/>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontWeight:700,fontSize:13,color:B.dk}}>{m.name}</div>
+            <div style={{fontSize:10,color:B.ac,fontWeight:600,marginBottom:6}}>{m.role}</div>
+            <div style={{fontSize:10,color:B.tg,lineHeight:1.55}}>{m.resp}</div>
+            <div style={{marginTop:9,display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontSize:9,padding:"2px 9px",borderRadius:20,background:B.pl,color:B.md,fontWeight:700}}>{m.area}</span>
+              <span style={{fontSize:9,color:B.tg}}>{mt.length} tasks · {mc} done</span>
+            </div>
+            <div style={{marginTop:7}}><Pbar pct={mp} h={4}/></div>
+          </div>
+        </Card>;
+      })}
+    </div>
+    <div style={{background:B.wh,borderRadius:12,border:`1px solid ${B.pl}`,overflow:"hidden",marginBottom:16}}>
+      <div style={{background:B.md,padding:"11px 20px",fontWeight:700,fontSize:13,color:"#fff"}}>Core Delivery Roles</div>
+      <div style={{display:"grid",gridTemplateColumns:"160px 1fr 1fr 110px",padding:"9px 20px",background:B.dk}}>
+        {["Role","Responsibility","Assigned To","Status"].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:B.pl,textTransform:"uppercase",letterSpacing:.4}}>{h}</div>)}
+      </div>
+      {coreRoles.map((r,i)=>{const sc=stBadge(r.status);return <div key={i} style={{display:"grid",gridTemplateColumns:"160px 1fr 1fr 110px",padding:"10px 20px",alignItems:"start",background:i%2===0?B.wh:B.st,borderBottom:`1px solid ${B.pl}`}}>
+        <div style={{fontSize:11,fontWeight:700,color:B.dk}}>{r.role}</div>
+        <div style={{fontSize:10,color:B.tm,lineHeight:1.5}}>{r.resp}</div>
+        <div style={{fontSize:10,color:B.tg,lineHeight:1.5}}>{r.who}</div>
+        <span style={{display:"inline-block",padding:"2px 9px",borderRadius:20,fontSize:10,fontWeight:600,background:sc.bg,color:sc.fg,width:"fit-content"}}>{r.status}</span>
+      </div>;})}
+    </div>
+    <Card>
+      <div style={{fontWeight:700,fontSize:13,color:B.dk,marginBottom:13}}>📋 Risk Register</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 110px 1fr",padding:"9px 14px",background:B.dk,borderRadius:"6px 6px 0 0"}}>
+        {["Risk","Likelihood","Mitigation"].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:B.pl,textTransform:"uppercase",letterSpacing:.4}}>{h}</div>)}
+      </div>
+      {risks.map(([r,l,m],i)=>{const c=rc(l);return <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 110px 1fr",padding:"9px 14px",background:i%2===0?B.wh:B.st,borderBottom:`1px solid ${B.pl}`,borderLeft:`3px solid ${c.fg}`}}>
+        <div style={{fontSize:11,color:B.tx,fontWeight:500}}>{r}</div>
+        <span style={{display:"inline-block",padding:"2px 9px",borderRadius:20,fontSize:10,fontWeight:600,background:c.bg,color:c.fg,width:"fit-content"}}>{l}</span>
+        <div style={{fontSize:10,color:B.tg}}>{m}</div>
+      </div>;})}
+    </Card>
+  </div>;
+}
+
+// ════════════════════════════════════════════════════════════
+// ROOT
+// ════════════════════════════════════════════════════════════
+export default function App(){
+  const [tab,setTab]=useState("dashboard");
+  const [tasks,setTasks]=useState(()=>loadState("nc_tasks",DEFAULT_TASKS));
+  const [raci,setRaci]=useState(()=>loadState("nc_raci",DEFAULT_RACI));
+  const [toast,setToast]=useState("");
+  const [ganttModal,setGanttModal]=useState(null);
+
+  useEffect(()=>{try{localStorage.setItem("nc_tasks",JSON.stringify(tasks));}catch{}},[tasks]);
+  useEffect(()=>{try{localStorage.setItem("nc_raci",JSON.stringify(raci));}catch{}},[raci]);
+  useEffect(()=>{if(!toast)return;const t=setTimeout(()=>setToast(""),2800);return()=>clearTimeout(t);},[toast]);
+
+  function exportCSV(){
+    const hdr=["ID","Task","Owner","Start","End","Status","Priority","% Done","Deps","Notes"];
+    const rows=tasks.map(t=>[t.id,`"${t.desc}"`,memberObj(t.owner).name,t.start,t.end,t.status,t.pri,t.pct,`"${t.deps}"`,`"${t.notes}"`]);
+    const csv=[hdr,...rows].map(r=>r.join(",")).join("\n");
+    const a=document.createElement("a");a.href="data:text/csv;charset=utf-8,"+encodeURIComponent(csv);a.download="NC_Oxford_Debate.csv";a.click();
+    setToast("⬇ CSV exported");
+  }
+
+  const TABS=[{id:"dashboard",label:"Dashboard"},{id:"tasks",label:"Tasks"},{id:"gantt",label:"Gantt"},{id:"raci",label:"RACI"},{id:"team",label:"Team"}];
+
+  function handleGanttSave(saved){setTasks(ts=>ts.map(t=>t.id===saved.id?saved:t));setGanttModal(null);setToast(`✓ Task #${saved.id} updated`);}
+  function handleGanttDelete(id){setTasks(ts=>ts.filter(t=>t.id!==id));setGanttModal(null);setToast("Task deleted");}
+
+  return <div style={{fontFamily:"'Segoe UI',system-ui,sans-serif",background:B.st,minHeight:"100vh",color:B.tx}}>
+    {/* Header */}
+    <div style={{background:B.dk,padding:"0 20px",display:"flex",alignItems:"center",gap:14,height:54,position:"sticky",top:0,zIndex:200,boxShadow:"0 2px 8px rgba(0,0,0,.2)"}}>
+      <div style={{width:34,height:34,borderRadius:"50%",background:B.lt,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+        <span style={{fontSize:12,fontWeight:700,color:B.dk}}>NC</span>
+      </div>
+      <div>
+        <div style={{color:"#fff",fontWeight:700,fontSize:14,lineHeight:1.1}}>Northumbria Construct</div>
+        <div style={{color:B.lt,fontSize:10}}>Oxford Debate · 28 April 2026 · NSU Building – Reds Hall</div>
+      </div>
+      <div style={{flex:1}}/>
+      <div style={{display:"flex",gap:3}}>
+        {TABS.map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{padding:"5px 13px",borderRadius:20,border:"none",cursor:"pointer",fontSize:11,fontWeight:600,transition:"all .15s",background:tab===t.id?B.lt:"transparent",color:tab===t.id?B.dk:B.pl}}>{t.label}</button>)}
+      </div>
+      <div style={{display:"flex",gap:6,marginLeft:8}}>
+        <button onClick={()=>setToast("✓ Auto-saved to browser")} style={{padding:"5px 12px",borderRadius:20,fontSize:11,fontWeight:600,background:"rgba(116,198,157,.2)",color:B.lt,border:"1px solid rgba(116,198,157,.3)",cursor:"pointer"}}>💾 Saved</button>
+        <button onClick={exportCSV} style={{padding:"5px 12px",borderRadius:20,fontSize:11,fontWeight:600,background:"rgba(116,198,157,.2)",color:B.lt,border:"1px solid rgba(116,198,157,.3)",cursor:"pointer"}}>⬇ CSV</button>
+      </div>
+    </div>
+
+    {/* Content */}
+    <div style={{maxWidth:1280,margin:"0 auto",padding:"22px 18px"}}>
+      {tab==="dashboard"&&<Dashboard tasks={tasks} onNav={setTab}/>}
+      {tab==="tasks"&&<TaskTracker tasks={tasks} setTasks={setTasks} setToast={setToast}/>}
+      {tab==="gantt"&&<>
+        <GanttChart tasks={tasks} onEdit={t=>setGanttModal(t)}/>
+        {ganttModal&&<TaskModal task={ganttModal} onSave={handleGanttSave} onDelete={handleGanttDelete} onClose={()=>setGanttModal(null)}/>}
+      </>}
+      {tab==="raci"&&<RaciMatrix tasks={tasks} raci={raci} setRaci={setRaci}/>}
+      {tab==="team"&&<Team tasks={tasks}/>}
+    </div>
+
+    <Toast msg={toast}/>
+  </div>;
 }
