@@ -347,7 +347,7 @@ function HomeStakeholders({isMobile}){
             </div>
           </div>
           {/* Score bars */}
-          <div style={{padding:"0 16px 4px",display:"flex",gap:8",flexWrap:"wrap"}}>
+          <div style={{padding:"0 16px 4px",display:"flex",gap:8,flexWrap:"wrap"}}>
             {[["P",s.power],["I",s.interest],["Inf",s.influence],["E",s.ease]].map(([lbl,val])=>
               <div key={lbl} style={{display:"flex",alignItems:"center",gap:5,marginBottom:8}}>
                 <span style={{fontSize:9,fontWeight:700,color:B.tg,minWidth:20}}>{lbl}</span>
