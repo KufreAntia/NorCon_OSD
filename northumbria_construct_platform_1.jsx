@@ -183,7 +183,7 @@ function Home({isMobile,onNav}){
         <h1 style={{fontSize:isMobile?22:28,fontWeight:800,color:"#fff",margin:"0 0 8px",lineHeight:1.2}}>Oxford-Style Debate Event</h1>
         <div style={{fontSize:14,color:B.lt,marginBottom:16}}>NSU Building – Reds Hall · 28 April 2026 · ~30 Students</div>
         <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-          {[["📅","28 April"],["🕒","3pm – 5pm"],["📍","Reds Hall"],["🎓","~30 Attendees"]].map(([ic,lbl])=>
+          {[["📅","28 April"],["🕒","2:30pm – 4:30pm"],["📍","Reds Hall"],["🎓","~30 Attendees"]].map(([ic,lbl])=>
             <div key={lbl} style={{display:"flex",alignItems:"center",gap:5,background:"rgba(255,255,255,.1)",borderRadius:99,padding:"5px 12px"}}>
               <span style={{fontSize:13}}>{ic}</span><span style={{fontSize:12,color:"#fff",fontWeight:600}}>{lbl}</span>
             </div>
