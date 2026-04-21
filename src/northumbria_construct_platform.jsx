@@ -732,31 +732,28 @@ export default function App(){
   // ── On mount: load from shared server, fall back to localStorage ───────────
   useEffect(()=>{
     async function loadFromServer(){
-      setSaveStatus("loading");
-      try{
-        const res=await fetch("/api/state");
-        if(!res.ok)throw new Error("Server unreachable");
-        const data=await res.json();
-        setHasRemote(true);
-        if(data.exists){
-          // Server has saved state — use it (it's newer / shared across all users)
-          setTasks(data.tasks);
-          setRaci(data.raci||DEFAULT_RACI);
-          setLastSaved({by:data.savedBy,at:data.savedAt});
-          // Mirror to localStorage as backup
-          try{localStorage.setItem("nc_tasks_v2",JSON.stringify(data.tasks));}catch{}
-          try{localStorage.setItem("nc_raci_v2",JSON.stringify(data.raci||DEFAULT_RACI));}catch{}
-        }
-        setSaveStatus("idle");
-      }catch(err){
-        // No server / KV not set up yet — fall through to localStorage (already loaded)
-        setHasRemote(false);
-        setSaveStatus("idle");
-      }
+  setSaveStatus("loading");
+  try{
+    const res=await fetch("/api/state");
+    if(!res.ok) throw new Error("Server unreachable");
+    const data=await res.json();
+    setHasRemote(true);
+    if(data.exists
+      && Array.isArray(data.tasks)
+      && data.tasks.length > 0
+    ){
+      setTasks(data.tasks);
+      if(data.raci && typeof data.raci==="object") setRaci(data.raci);
+      setLastSaved({by:data.savedBy, at:data.savedAt});
+      try{localStorage.setItem("nc_tasks_v2",JSON.stringify(data.tasks));}catch{}
+      try{localStorage.setItem("nc_raci_v2",JSON.stringify(data.raci||DEFAULT_RACI));}catch{}
     }
-    loadFromServer();
-  },[]);
-
+    setSaveStatus("idle");
+  }catch(err){
+    setHasRemote(false);
+    setSaveStatus("idle");
+  }
+}
   // ── Keep localStorage in sync locally (instant, no network) ───────────────
   useEffect(()=>{try{localStorage.setItem("nc_tasks_v2",JSON.stringify(tasks));}catch{}},[tasks]);
   useEffect(()=>{try{localStorage.setItem("nc_raci_v2",JSON.stringify(raci));}catch{}},[raci]);
