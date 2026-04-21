@@ -715,6 +715,7 @@ function Team({tasks,isMobile}){
 }
 
 // ════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════
 // ROOT
 // ════════════════════════════════════════════════════════════
 export default function App(){
@@ -725,66 +726,69 @@ export default function App(){
   const[toast,setToast]=useState("");
 
   // ── Shared save state ──────────────────────────────────────────────────────
-  const[saveStatus,setSaveStatus]=useState("idle"); // idle | saving | saved | error | loading
-  const[lastSaved,setLastSaved]=useState(null);     // {by, at} from server
-  const[hasRemote,setHasRemote]=useState(false);    // true once we've confirmed server is reachable
+  const[saveStatus,setSaveStatus]=useState("idle");
+  const[lastSaved,setLastSaved]=useState(null);
+  const[hasRemote,setHasRemote]=useState(false);
 
-  // ── On mount: load from shared server, fall back to localStorage ───────────
+  // ── Load from server on mount — with full validation ──────────────────────
   useEffect(()=>{
     async function loadFromServer(){
-  setSaveStatus("loading");
-  try{
-    const res=await fetch("/api/state");
-    if(!res.ok) throw new Error("Server unreachable");
-    const data=await res.json();
-    setHasRemote(true);
-    if(data.exists
-      && Array.isArray(data.tasks)
-      && data.tasks.length > 0
-    ){
-      setTasks(data.tasks);
-      if(data.raci && typeof data.raci==="object") setRaci(data.raci);
-      setLastSaved({by:data.savedBy, at:data.savedAt});
-      try{localStorage.setItem("nc_tasks_v2",JSON.stringify(data.tasks));}catch{}
-      try{localStorage.setItem("nc_raci_v2",JSON.stringify(data.raci||DEFAULT_RACI));}catch{}
+      setSaveStatus("loading");
+      try{
+        const res=await fetch("/api/state");
+        if(!res.ok) throw new Error("unreachable");
+        const data=await res.json();
+        setHasRemote(true);
+        // Only apply if data is valid — prevents blank screen from corrupt saves
+        if(
+          data.exists===true &&
+          Array.isArray(data.tasks) &&
+          data.tasks.length>0 &&
+          data.tasks[0]!=null &&
+          data.tasks[0].id!==undefined
+        ){
+          setTasks(data.tasks);
+          if(data.raci && typeof data.raci==="object" && !Array.isArray(data.raci)){
+            setRaci(data.raci);
+          }
+          setLastSaved({by:data.savedBy||"", at:data.savedAt||""});
+          try{localStorage.setItem("nc_tasks_v2",JSON.stringify(data.tasks));}catch{}
+          try{localStorage.setItem("nc_raci_v2",JSON.stringify(data.raci||DEFAULT_RACI));}catch{}
+        }
+        setSaveStatus("idle");
+      }catch(err){
+        // Server not reachable — silently fall through to localStorage data
+        setHasRemote(false);
+        setSaveStatus("idle");
+      }
     }
-    setSaveStatus("idle");
-  }catch(err){
-    setHasRemote(false);
-    setSaveStatus("idle");
-  }
-}
-  // ── Keep localStorage in sync locally (instant, no network) ───────────────
+    loadFromServer();
+  },[]);
+
+  // ── Keep localStorage in sync as local backup ──────────────────────────────
   useEffect(()=>{try{localStorage.setItem("nc_tasks_v2",JSON.stringify(tasks));}catch{}},[tasks]);
   useEffect(()=>{try{localStorage.setItem("nc_raci_v2",JSON.stringify(raci));}catch{}},[raci]);
   useEffect(()=>{if(!toast)return;const t=setTimeout(()=>setToast(""),3500);return()=>clearTimeout(t);},[toast]);
 
-  // ── Shared save — pushes to server so ALL users get the update ─────────────
+  // ── Push state to server so all users share the same data ─────────────────
   async function saveToServer(){
     setSaveStatus("saving");
-    const now=new Date().toISOString();
-    const payload={
-      tasks,
-      raci,
-      savedBy:"Committee Member",
-      savedAt:new Date().toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}),
-    };
+    const savedAt=new Date().toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
     try{
       const res=await fetch("/api/state",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
-        body:JSON.stringify(payload),
+        body:JSON.stringify({tasks,raci,savedBy:"Committee Member",savedAt}),
       });
       if(!res.ok){const e=await res.json();throw new Error(e.error||"Save failed");}
-      const data=await res.json();
-      setLastSaved({by:payload.savedBy,at:payload.savedAt});
+      setLastSaved({by:"Committee Member",at:savedAt});
       setHasRemote(true);
       setSaveStatus("saved");
       setToast("☁ Saved — all users will see this when they refresh");
       setTimeout(()=>setSaveStatus("idle"),3000);
     }catch(err){
       setSaveStatus("error");
-      setToast("⚠ Save failed — changes kept locally. Check Vercel KV is connected.");
+      setToast("⚠ Save failed — changes kept locally");
       setTimeout(()=>setSaveStatus("idle"),4000);
     }
   }
@@ -797,18 +801,22 @@ export default function App(){
     setToast("⬇ CSV exported");
   }
 
-  // ── Save button appearance ─────────────────────────────────────────────────
-  const saveBtnStyle={
-    padding:"5px 14px",borderRadius:20,fontSize:11,fontWeight:700,
-    border:"none",cursor:saveStatus==="saving"?"wait":"pointer",
-    transition:"all .2s",
-  };
-  const saveBtnProps=
-    saveStatus==="saving" ? {bg:"rgba(255,255,255,.15)",fg:"rgba(255,255,255,.5)",label:"Saving…"}
-  : saveStatus==="saved"  ? {bg:"#1A5C2A",             fg:"#74C69D",             label:"✓ Saved"}
-  : saveStatus==="error"  ? {bg:"#8B1A1A",             fg:"#FFE0E0",             label:"⚠ Failed"}
-  : saveStatus==="loading"? {bg:"rgba(255,255,255,.08)",fg:"rgba(255,255,255,.4)",label:"Loading…"}
-  :                         {bg:"rgba(255,255,255,.12)", fg:"#fff",              label:"☁ Save"};
+  // ── Save button label & colours ────────────────────────────────────────────
+  const saveLabel=
+    saveStatus==="saving"  ? "Saving…"
+  : saveStatus==="saved"   ? "✓ Saved"
+  : saveStatus==="error"   ? "⚠ Failed"
+  : saveStatus==="loading" ? "Loading…"
+  :                          "☁ Save";
+  const saveBg=
+    saveStatus==="saved"  ? "#1A5C2A"
+  : saveStatus==="error"  ? "#8B1A1A"
+  :                         "rgba(255,255,255,.12)";
+  const saveFg=
+    saveStatus==="saved"  ? "#74C69D"
+  : saveStatus==="error"  ? "#FFE0E0"
+  : saveStatus==="loading"? "rgba(255,255,255,.4)"
+  :                         "#fff";
 
   const TABS=[
     {id:"home",     label:"Home",   icon:"🏠"},
@@ -821,6 +829,8 @@ export default function App(){
   ];
 
   return<div style={{fontFamily:"'Segoe UI',system-ui,sans-serif",background:B.st,minHeight:"100vh",color:B.tx,paddingBottom:isMobile?80:0}}>
+
+    {/* ── HEADER ── */}
     <div style={{background:B.dk,padding:`0 ${isMobile?12:20}px`,display:"flex",alignItems:"center",gap:12,height:54,position:"sticky",top:0,zIndex:200,boxShadow:"0 2px 8px rgba(0,0,0,.2)"}}>
       <div style={{width:34,height:34,borderRadius:"50%",background:B.lt,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
         <span style={{fontSize:12,fontWeight:700,color:B.dk}}>NC</span>
@@ -829,7 +839,7 @@ export default function App(){
         <div style={{color:"#fff",fontWeight:700,fontSize:14,lineHeight:1.1}}>Northumbria Construct</div>
         {!isMobile&&<div style={{color:B.lt,fontSize:10}}>
           Oxford Debate · 28 April 2026
-          {lastSaved&&<span style={{opacity:.6}}> · Last saved {lastSaved.at}</span>}
+          {lastSaved&&<span style={{opacity:.6}}> · Saved {lastSaved.at}</span>}
           {!hasRemote&&saveStatus==="idle"&&<span style={{color:"#F0C040",marginLeft:6}}>· local only</span>}
         </div>}
       </div>
@@ -837,21 +847,19 @@ export default function App(){
         {TABS.map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{padding:"5px 11px",borderRadius:20,border:"none",cursor:"pointer",fontSize:11,fontWeight:600,transition:"all .15s",background:tab===t.id?B.lt:"transparent",color:tab===t.id?B.dk:B.pl}}>{t.icon} {t.label}</button>)}
       </div>}
       <div style={{display:"flex",gap:6,flexShrink:0}}>
-        {/* ── SAVE BUTTON ── */}
         <button
           onClick={saveToServer}
           disabled={saveStatus==="saving"||saveStatus==="loading"}
-          style={{...saveBtnStyle,background:saveBtnProps.bg,color:saveBtnProps.fg}}
-        >{saveBtnProps.label}</button>
-        {/* ── CSV EXPORT ── */}
+          style={{padding:"5px 14px",borderRadius:20,fontSize:11,fontWeight:700,border:"none",cursor:saveStatus==="saving"?"wait":"pointer",background:saveBg,color:saveFg,transition:"all .2s"}}
+        >{saveLabel}</button>
         <button onClick={exportCSV} style={{padding:"5px 11px",borderRadius:20,fontSize:11,fontWeight:600,background:"rgba(116,198,157,.2)",color:B.lt,border:"1px solid rgba(116,198,157,.3)",cursor:"pointer"}}>⬇ CSV</button>
       </div>
     </div>
 
-    {/* Banner shown when server save is not yet configured */}
+    {/* Warning banner — only shows when server not connected */}
     {!hasRemote&&saveStatus==="idle"&&<div style={{background:"#FFF3CD",borderBottom:"1px solid #F0C040",padding:"8px 20px",fontSize:12,color:"#7A5000",display:"flex",alignItems:"center",gap:10}}>
       <span>⚠</span>
-      <span>Shared save not connected — changes save locally only. Set up <b>Vercel KV</b> to enable the Save button for all users. See README for instructions.</span>
+      <span>Shared save not connected — changes are saving locally only.</span>
     </div>}
 
     <div style={{maxWidth:1280,margin:"0 auto",padding:isMobile?"16px 14px":"22px 18px"}}>
@@ -864,16 +872,19 @@ export default function App(){
       {tab==="report"   &&<FinalReport tasks={tasks} raci={raci} isMobile={isMobile}/>}
     </div>
 
+    {/* ── MOBILE BOTTOM NAV ── */}
     {isMobile&&<div style={{position:"fixed",bottom:0,left:0,right:0,background:B.wh,borderTop:`1px solid ${B.pl}`,display:"flex",zIndex:200,paddingBottom:"env(safe-area-inset-bottom)"}}>
       {TABS.map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{flex:1,border:"none",background:"transparent",padding:"8px 2px 6px",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:2,minWidth:0}}>
         <span style={{fontSize:16}}>{t.icon}</span>
         <span style={{fontSize:8,fontWeight:700,color:tab===t.id?B.ac:B.tg,lineHeight:1}}>{t.label}</span>
         {tab===t.id&&<div style={{width:16,height:3,borderRadius:99,background:B.ac}}/>}
       </button>)}
-      {/* Mobile save button sits above the tab bar */}
-      <button onClick={saveToServer} disabled={saveStatus==="saving"||saveStatus==="loading"} style={{position:"absolute",top:-40,right:14,padding:"7px 16px",borderRadius:99,fontSize:12,fontWeight:700,border:"none",cursor:"pointer",background:saveStatus==="saved"?"#1A5C2A":B.dk,color:saveStatus==="saved"?"#74C69D":"#fff",boxShadow:"0 2px 8px rgba(0,0,0,.3)"}}>
-        {saveBtnProps.label}
-      </button>
+      {/* Mobile save button — floats above tab bar */}
+      <button
+        onClick={saveToServer}
+        disabled={saveStatus==="saving"||saveStatus==="loading"}
+        style={{position:"absolute",top:-40,right:14,padding:"7px 16px",borderRadius:99,fontSize:12,fontWeight:700,border:"none",cursor:"pointer",background:saveStatus==="saved"?"#1A5C2A":B.dk,color:saveStatus==="saved"?"#74C69D":"#fff",boxShadow:"0 2px 8px rgba(0,0,0,.3)"}}
+      >{saveLabel}</button>
     </div>}
 
     <Toast msg={toast}/>
