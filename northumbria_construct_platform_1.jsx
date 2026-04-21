@@ -724,9 +724,73 @@ export default function App(){
   const[raci,setRaci]=useState(()=>loadState("nc_raci_v2",DEFAULT_RACI));
   const[toast,setToast]=useState("");
 
+  // ── Shared save state ──────────────────────────────────────────────────────
+  const[saveStatus,setSaveStatus]=useState("idle"); // idle | saving | saved | error | loading
+  const[lastSaved,setLastSaved]=useState(null);     // {by, at} from server
+  const[hasRemote,setHasRemote]=useState(false);    // true once we've confirmed server is reachable
+
+  // ── On mount: load from shared server, fall back to localStorage ───────────
+  useEffect(()=>{
+    async function loadFromServer(){
+      setSaveStatus("loading");
+      try{
+        const res=await fetch("/api/state");
+        if(!res.ok)throw new Error("Server unreachable");
+        const data=await res.json();
+        setHasRemote(true);
+        if(data.exists){
+          // Server has saved state — use it (it's newer / shared across all users)
+          setTasks(data.tasks);
+          setRaci(data.raci||DEFAULT_RACI);
+          setLastSaved({by:data.savedBy,at:data.savedAt});
+          // Mirror to localStorage as backup
+          try{localStorage.setItem("nc_tasks_v2",JSON.stringify(data.tasks));}catch{}
+          try{localStorage.setItem("nc_raci_v2",JSON.stringify(data.raci||DEFAULT_RACI));}catch{}
+        }
+        setSaveStatus("idle");
+      }catch(err){
+        // No server / KV not set up yet — fall through to localStorage (already loaded)
+        setHasRemote(false);
+        setSaveStatus("idle");
+      }
+    }
+    loadFromServer();
+  },[]);
+
+  // ── Keep localStorage in sync locally (instant, no network) ───────────────
   useEffect(()=>{try{localStorage.setItem("nc_tasks_v2",JSON.stringify(tasks));}catch{}},[tasks]);
   useEffect(()=>{try{localStorage.setItem("nc_raci_v2",JSON.stringify(raci));}catch{}},[raci]);
-  useEffect(()=>{if(!toast)return;const t=setTimeout(()=>setToast(""),3000);return()=>clearTimeout(t);},[toast]);
+  useEffect(()=>{if(!toast)return;const t=setTimeout(()=>setToast(""),3500);return()=>clearTimeout(t);},[toast]);
+
+  // ── Shared save — pushes to server so ALL users get the update ─────────────
+  async function saveToServer(){
+    setSaveStatus("saving");
+    const now=new Date().toISOString();
+    const payload={
+      tasks,
+      raci,
+      savedBy:"Committee Member",
+      savedAt:new Date().toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}),
+    };
+    try{
+      const res=await fetch("/api/state",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify(payload),
+      });
+      if(!res.ok){const e=await res.json();throw new Error(e.error||"Save failed");}
+      const data=await res.json();
+      setLastSaved({by:payload.savedBy,at:payload.savedAt});
+      setHasRemote(true);
+      setSaveStatus("saved");
+      setToast("☁ Saved — all users will see this when they refresh");
+      setTimeout(()=>setSaveStatus("idle"),3000);
+    }catch(err){
+      setSaveStatus("error");
+      setToast("⚠ Save failed — changes kept locally. Check Vercel KV is connected.");
+      setTimeout(()=>setSaveStatus("idle"),4000);
+    }
+  }
 
   function exportCSV(){
     const hdr=["ID","Task","Owner","Start","End","Status","Priority","% Done","Notes"];
@@ -735,6 +799,19 @@ export default function App(){
     const a=document.createElement("a");a.href="data:text/csv;charset=utf-8,"+encodeURIComponent(csv);a.download="NC_Oxford_Debate.csv";a.click();
     setToast("⬇ CSV exported");
   }
+
+  // ── Save button appearance ─────────────────────────────────────────────────
+  const saveBtnStyle={
+    padding:"5px 14px",borderRadius:20,fontSize:11,fontWeight:700,
+    border:"none",cursor:saveStatus==="saving"?"wait":"pointer",
+    transition:"all .2s",
+  };
+  const saveBtnProps=
+    saveStatus==="saving" ? {bg:"rgba(255,255,255,.15)",fg:"rgba(255,255,255,.5)",label:"Saving…"}
+  : saveStatus==="saved"  ? {bg:"#1A5C2A",             fg:"#74C69D",             label:"✓ Saved"}
+  : saveStatus==="error"  ? {bg:"#8B1A1A",             fg:"#FFE0E0",             label:"⚠ Failed"}
+  : saveStatus==="loading"? {bg:"rgba(255,255,255,.08)",fg:"rgba(255,255,255,.4)",label:"Loading…"}
+  :                         {bg:"rgba(255,255,255,.12)", fg:"#fff",              label:"☁ Save"};
 
   const TABS=[
     {id:"home",     label:"Home",   icon:"🏠"},
@@ -747,21 +824,38 @@ export default function App(){
   ];
 
   return<div style={{fontFamily:"'Segoe UI',system-ui,sans-serif",background:B.st,minHeight:"100vh",color:B.tx,paddingBottom:isMobile?80:0}}>
-    <div style={{background:B.dk,padding:`0 ${isMobile?14:20}px`,display:"flex",alignItems:"center",gap:12,height:54,position:"sticky",top:0,zIndex:200,boxShadow:"0 2px 8px rgba(0,0,0,.2)"}}>
+    <div style={{background:B.dk,padding:`0 ${isMobile?12:20}px`,display:"flex",alignItems:"center",gap:12,height:54,position:"sticky",top:0,zIndex:200,boxShadow:"0 2px 8px rgba(0,0,0,.2)"}}>
       <div style={{width:34,height:34,borderRadius:"50%",background:B.lt,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
         <span style={{fontSize:12,fontWeight:700,color:B.dk}}>NC</span>
       </div>
       <div style={{flex:1,minWidth:0}}>
         <div style={{color:"#fff",fontWeight:700,fontSize:14,lineHeight:1.1}}>Northumbria Construct</div>
-        {!isMobile&&<div style={{color:B.lt,fontSize:10}}>Oxford Debate · 28 April 2026</div>}
+        {!isMobile&&<div style={{color:B.lt,fontSize:10}}>
+          Oxford Debate · 28 April 2026
+          {lastSaved&&<span style={{opacity:.6}}> · Last saved {lastSaved.at}</span>}
+          {!hasRemote&&saveStatus==="idle"&&<span style={{color:"#F0C040",marginLeft:6}}>· local only</span>}
+        </div>}
       </div>
       {!isMobile&&<div style={{display:"flex",gap:2}}>
         {TABS.map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{padding:"5px 11px",borderRadius:20,border:"none",cursor:"pointer",fontSize:11,fontWeight:600,transition:"all .15s",background:tab===t.id?B.lt:"transparent",color:tab===t.id?B.dk:B.pl}}>{t.icon} {t.label}</button>)}
       </div>}
       <div style={{display:"flex",gap:6,flexShrink:0}}>
+        {/* ── SAVE BUTTON ── */}
+        <button
+          onClick={saveToServer}
+          disabled={saveStatus==="saving"||saveStatus==="loading"}
+          style={{...saveBtnStyle,background:saveBtnProps.bg,color:saveBtnProps.fg}}
+        >{saveBtnProps.label}</button>
+        {/* ── CSV EXPORT ── */}
         <button onClick={exportCSV} style={{padding:"5px 11px",borderRadius:20,fontSize:11,fontWeight:600,background:"rgba(116,198,157,.2)",color:B.lt,border:"1px solid rgba(116,198,157,.3)",cursor:"pointer"}}>⬇ CSV</button>
       </div>
     </div>
+
+    {/* Banner shown when server save is not yet configured */}
+    {!hasRemote&&saveStatus==="idle"&&<div style={{background:"#FFF3CD",borderBottom:"1px solid #F0C040",padding:"8px 20px",fontSize:12,color:"#7A5000",display:"flex",alignItems:"center",gap:10}}>
+      <span>⚠</span>
+      <span>Shared save not connected — changes save locally only. Set up <b>Vercel KV</b> to enable the Save button for all users. See README for instructions.</span>
+    </div>}
 
     <div style={{maxWidth:1280,margin:"0 auto",padding:isMobile?"16px 14px":"22px 18px"}}>
       {tab==="home"     &&<Home isMobile={isMobile} onNav={setTab}/>}
@@ -779,6 +873,10 @@ export default function App(){
         <span style={{fontSize:8,fontWeight:700,color:tab===t.id?B.ac:B.tg,lineHeight:1}}>{t.label}</span>
         {tab===t.id&&<div style={{width:16,height:3,borderRadius:99,background:B.ac}}/>}
       </button>)}
+      {/* Mobile save button sits above the tab bar */}
+      <button onClick={saveToServer} disabled={saveStatus==="saving"||saveStatus==="loading"} style={{position:"absolute",top:-40,right:14,padding:"7px 16px",borderRadius:99,fontSize:12,fontWeight:700,border:"none",cursor:"pointer",background:saveStatus==="saved"?"#1A5C2A":B.dk,color:saveStatus==="saved"?"#74C69D":"#fff",boxShadow:"0 2px 8px rgba(0,0,0,.3)"}}>
+        {saveBtnProps.label}
+      </button>
     </div>}
 
     <Toast msg={toast}/>
