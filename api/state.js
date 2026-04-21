@@ -1,98 +1,102 @@
-// api/state.js
-// ─────────────────────────────────────────────────────────────────────────────
-// Vercel Serverless Function — shared project state via Vercel KV
-//
-// SETUP (one-time, ~2 minutes):
-//   1. Go to vercel.com → your project → Storage tab
-//   2. Click "Create Database" → choose "KV"
-//   3. Click "Connect" to link it to your project
-//   4. Redeploy — Vercel auto-injects KV_REST_API_URL and KV_REST_API_TOKEN
-//
-// This single file handles both GET (load) and POST (save).
-// ─────────────────────────────────────────────────────────────────────────────
-
-const KV_URL   = process.env.KV_REST_API_URL;
-const KV_TOKEN = process.env.KV_REST_API_TOKEN;
 const STATE_KEY = "nc_shared_state_v1";
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+const KV_URL   = process.env.SaveState_KV_REST_API_URL   || process.env.KV_REST_API_URL;
+const KV_TOKEN = process.env.SaveState_KV_REST_API_TOKEN || process.env.KV_REST_API_TOKEN;
+
 async function kvGet(key) {
   const res = await fetch(`${KV_URL}/get/${key}`, {
     headers: { Authorization: `Bearer ${KV_TOKEN}` },
   });
-  if (!res.ok) return null;
+  if (!res.ok) throw new Error(`kvGet failed: ${res.status}`);
   const json = await res.json();
-  return json.result ?? null; // returns null if key doesn't exist yet
+  return json.result ?? null;
 }
 
 async function kvSet(key, value) {
   const res = await fetch(`${KV_URL}/set/${key}`, {
-    method:  "POST",
+    method: "POST",
     headers: {
-      Authorization:  `Bearer ${KV_TOKEN}`,
+      Authorization: `Bearer ${KV_TOKEN}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ value }),
+    body: JSON.stringify([key, value]),
   });
-  if (!res.ok) throw new Error(`KV write failed: ${res.status}`);
+  if (!res.ok) throw new Error(`kvSet failed: ${res.status}`);
   return true;
 }
 
-// ── Main handler ──────────────────────────────────────────────────────────────
+async function kvDel(key) {
+  const res = await fetch(`${KV_URL}/del/${key}`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${KV_TOKEN}` },
+  });
+  if (!res.ok) throw new Error(`kvDel failed: ${res.status}`);
+  return true;
+}
+
 export default async function handler(req, res) {
-  // Allow requests from any origin (your Vercel app domain)
-  res.setHeader("Access-Control-Allow-Origin",  "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-  // CORS preflight
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
+  if (req.method === "OPTIONS") return res.status(200).end();
+
+  if (!KV_URL || !KV_TOKEN) {
+    return res.status(200).json({
+      exists: false,
+      debug: "env vars missing",
+      found: Object.keys(process.env).filter(k =>
+        k.includes("SaveState") || k.includes("KV") || k.includes("UPSTASH")
+      ),
+    });
   }
 
-  // ── GET — load shared state ───────────────────────────────────────────────
-  if (req.method === "GET") {
+  // DELETE — clear saved state (visit /api/state with DELETE or add ?clear=1)
+  if (req.method === "DELETE" || req.query?.clear === "1") {
     try {
-      const stored = await kvGet(STATE_KEY);
-      if (!stored) {
-        // No shared state saved yet — tell the client to use its local data
-        return res.status(200).json({ exists: false });
-      }
-      const state = JSON.parse(stored);
-      return res.status(200).json({ exists: true, ...state });
+      await kvDel(STATE_KEY);
+      return res.status(200).json({ ok: true, message: "State cleared — app will use default data" });
     } catch (err) {
-      console.error("Load error:", err);
-      return res.status(500).json({ error: "Failed to load state", detail: err.message });
+      return res.status(500).json({ error: "Failed to clear", detail: err.message });
     }
   }
 
-  // ── POST — save shared state ──────────────────────────────────────────────
+  // GET — load shared state
+  if (req.method === "GET") {
+    try {
+      const stored = await kvGet(STATE_KEY);
+      if (!stored) return res.status(200).json({ exists: false });
+      const state = JSON.parse(stored);
+      // Validate before returning
+      if (!Array.isArray(state.tasks) || state.tasks.length === 0) {
+        await kvDel(STATE_KEY); // auto-clear bad data
+        return res.status(200).json({ exists: false });
+      }
+      return res.status(200).json({ exists: true, ...state });
+    } catch (err) {
+      console.error("GET error:", err.message);
+      return res.status(500).json({ error: "Failed to load", detail: err.message });
+    }
+  }
+
+  // POST — save shared state
   if (req.method === "POST") {
     try {
-      const { tasks, raci, lessons, savedBy, savedAt } = req.body;
-
-      if (!tasks || !Array.isArray(tasks)) {
-        return res.status(400).json({ error: "Invalid payload — tasks array required" });
+      const body = req.body;
+      if (!body?.tasks || !Array.isArray(body.tasks) || body.tasks.length === 0) {
+        return res.status(400).json({ error: "Valid tasks array required" });
       }
-
       const payload = JSON.stringify({
-        tasks,
-        raci:    raci    ?? {},
-        lessons: lessons ?? [],
-        savedBy: savedBy ?? "Unknown",
-        savedAt: savedAt ?? new Date().toISOString(),
+        tasks:   body.tasks,
+        raci:    body.raci    ?? {},
+        savedBy: body.savedBy ?? "Committee Member",
+        savedAt: body.savedAt ?? new Date().toISOString(),
       });
-
       await kvSet(STATE_KEY, payload);
-
-      return res.status(200).json({
-        ok:      true,
-        message: `State saved by ${savedBy} at ${savedAt}`,
-        taskCount: tasks.length,
-      });
+      return res.status(200).json({ ok: true, taskCount: body.tasks.length });
     } catch (err) {
-      console.error("Save error:", err);
-      return res.status(500).json({ error: "Failed to save state", detail: err.message });
+      console.error("POST error:", err.message);
+      return res.status(500).json({ error: "Failed to save", detail: err.message });
     }
   }
 
